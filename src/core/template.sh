@@ -27,12 +27,18 @@ template::render() {
     export PKGNAME="${APP_USER}"
     export PKGSIZE_KB PKGSIZE_BYTES
 
+    # Format dependency lists for each package format
+    DEPS_ARCH_LINES=$(echo "${DEPS_ARCH:-}" | tr ' ' '\n' | sed 's/^/depend = /')
+    DEPS_RPM_LINES=$(echo "${DEPS_RPM:-}" | tr ' ' '\n' | sed 's/^/Requires: /')
+    export DEPS_ARCH_LINES DEPS_RPM_LINES
+
     # Only substitute config vars, not shell/runtime variables like APP_PATH
     local vars
     vars='$APP_NAME $APP_USER $INSTALL_DIR $REPO_OWNER $REPO_NAME $REPO'
     vars+=' $RELEASE_VERSION $PACKAGE_ARCH'
     vars+=' $DESKTOP_FILE $ICON_FILE $SERVICE_FILE $CLIENT_SCRIPT $SERVICE_SCRIPT'
     vars+=' $DEPS_DEB $DEPS_ARCH $DEPS_RPM'
+    vars+=' $DEPS_ARCH_LINES $DEPS_RPM_LINES'
     vars+=' $PACKAGE_VENDOR $PACKAGE_LICENSE $PACKAGE_DESCRIPTION $PACKAGE_URL $PACKAGE_MAINTAINER'
     vars+=' $PKGVER $PKGNAME $PKGSIZE_KB $PKGSIZE_BYTES'
 

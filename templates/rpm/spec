@@ -11,7 +11,7 @@ URL:            ${PACKAGE_URL}
 Group:          Applications/Communications
 AutoReqProv:    no
 
-Requires:       ${DEPS_RPM//, /%{?__newline}Requires:       }
+${DEPS_RPM_LINES}
 
 %description
 ${PACKAGE_DESCRIPTION}

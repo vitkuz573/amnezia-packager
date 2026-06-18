@@ -7,4 +7,4 @@ packager = ${PACKAGE_VENDOR} Packager <${PACKAGE_URL}>
 size = ${PKGSIZE_BYTES}
 arch = any
 license = ${PACKAGE_LICENSE}
-depend = ${DEPS_ARCH// /$'\n'depend = }
+${DEPS_ARCH_LINES}
