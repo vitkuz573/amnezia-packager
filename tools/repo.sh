@@ -1,13 +1,14 @@
 #!/bin/bash
 #
-# repo.sh — manage APT/YUM package repositories on GitHub Pages
+# repo.sh — manage APT/Arch/YUM package repositories on GitHub Pages
 #
 # Usage: ./tools/repo.sh <command> [options]
 #
 # Commands:
 #   init <dir>                  Initialize repo structure
-#   add <pkg> <dir>             Add a package to the repo
-#   release <dir> [--gpg-key K] Generate Release + Release.gpg + InRelease
+#   add <pkg> <dir>             Add a package (deb/pkg.tar.zst/rpm)
+#   release <dir> [--gpg-key K] Generate Release + sign APT & Arch
+#   upload [tag]                Upload packages to GitHub Release
 #   deploy <dir> [msg]          Commit and push to gh-pages
 #
 
@@ -21,6 +22,7 @@ cmd_init() {
     local dir="${1:-repo}"
     mkdir -p "${dir}/apt/dists/stable/main/binary-amd64"
     mkdir -p "${dir}/apt/pool"
+    mkdir -p "${dir}/arch"
     mkdir -p "${dir}/yum/x86_64"
     mkdir -p "${dir}/yum/repodata"
     echo "Repo initialized at ${dir}/"
@@ -50,9 +52,29 @@ cmd_add_rpm() {
 cmd_add_arch() {
     local pkg="$1" dir="${2:-repo}"
     [[ -f "$pkg" && "$pkg" == *.pkg.tar.zst ]] || { echo "Usage: repo add <file.pkg.tar.zst> [dir]"; exit 1; }
-    mkdir -p "${dir}/yum/x86_64"
-    cp "$pkg" "${dir}/yum/x86_64/"
-    echo "Added $(basename "$pkg")"
+    mkdir -p "${dir}/arch"
+    cp "$pkg" "${dir}/arch/"
+
+    # Find the db name from existing db or use the first package name
+    local db_path=""
+    for f in "${dir}/arch"/*.db.tar.zst; do
+        [[ -f "$f" ]] && { db_path="$f"; break; }
+    done
+    if [[ -z "$db_path" ]]; then
+        # Derive db name from package name (strip version+arch)
+        local pkg_name
+        pkg_name=$(basename "$pkg" | sed 's/-[0-9].*//')
+        db_path="${dir}/arch/${pkg_name}.db.tar.zst"
+    fi
+
+    if command -v repo-add &>/dev/null; then
+        (cd "${dir}/arch" && repo-add "${db_path}" "$(basename "$pkg")")
+        echo "Added $(basename "$pkg") to Arch repo (db: $(basename "$db_path"))"
+        # Remove the package binary — it's hosted on GitHub Releases
+        rm -f "${dir}/arch/$(basename "$pkg")"
+    else
+        echo "WARNING: repo-add not found — package copied but no db generated"
+    fi
 }
 
 cmd_release() {
@@ -125,12 +147,41 @@ cmd_release() {
         rm -f "$dist_dir/Release.gpg" "$dist_dir/InRelease"
         gpg --detach-sign --armor --default-key "$gpg_key" -o "$dist_dir/Release.gpg" "$dist_dir/Release"
         gpg --clearsign --default-key "$gpg_key" --output "$dist_dir/InRelease" "$dist_dir/Release"
-        echo "Signed Release with key $gpg_key"
+        echo "Signed APT Release with key $gpg_key"
     else
-        echo "No GPG key specified — repo will not be signed (apt will warn)"
+        echo "No GPG key specified — APT repo will not be signed (apt will warn)"
     fi
 
     echo "APT Release ready at ${dist_dir}/Release"
+
+    # Sign Arch repo database
+    local arch_dir="${dir}/arch"
+    if [[ -d "$arch_dir" ]]; then
+        for db in "$arch_dir"/*.db.tar.zst; do
+            [[ -f "$db" ]] || continue
+            if [[ -n "$gpg_key" ]]; then
+                rm -f "${db}.sig"
+                gpg --detach-sign --default-key "$gpg_key" "$db"
+                echo "Signed Arch db: $(basename "$db")"
+            fi
+            # Ensure symlinks exist (repo-add creates .db -> .db.tar.zst)
+            local db_nozst="${db%.tar.zst}"
+            if [[ ! -f "$db_nozst" ]]; then
+                ln -sf "$(basename "$db")" "$db_nozst" && echo "Symlink: $(basename "$db_nozst")"
+            fi
+            local files_db="${db%.db.tar.zst}.files.tar.zst"
+            if [[ -f "$files_db" ]]; then
+                local files_nozst="${files_db%.tar.zst}"
+                if [[ ! -f "$files_nozst" ]]; then
+                    ln -sf "$(basename "$files_db")" "$files_nozst" && echo "Symlink: $(basename "$files_nozst")"
+                fi
+                if [[ -n "$gpg_key" ]]; then
+                    rm -f "${files_db}.sig"
+                    gpg --detach-sign --default-key "$gpg_key" "$files_db"
+                fi
+            fi
+        done
+    fi
 }
 
 cmd_deploy() {
@@ -162,14 +213,51 @@ cmd_deploy() {
     echo "Deployed to ${REPO_BRANCH}"
 }
 
+cmd_upload() {
+    local tag="${1:-packages}"
+    shift 2>/dev/null || true
+
+    # Switch to project root for gh commands
+    cd "$(dirname "$0")/.."
+
+    # Ensure the tag and release exist
+    if ! git rev-parse "$tag" &>/dev/null; then
+        git tag "$tag"
+        git push origin "$tag"
+        gh release create "$tag" --title "AmneziaVPN Packages" \
+            --notes "Rolling release of AmneziaVPN native packages" || true
+    fi
+
+    # Force-update the tag to current HEAD
+    git tag -f "$tag"
+    git push -f origin "$tag"
+
+    # Upload all packages from OUTPUT_DIR
+    local output_dir="${OUTPUT_DIR:-/tmp/amnezia-pkgs}"
+    if [[ -d "$output_dir" ]]; then
+        local assets=()
+        for f in "$output_dir"/*.deb "$output_dir"/*.pkg.tar.zst "$output_dir"/*.rpm \
+                 "$output_dir"/*.sig "$output_dir"/*-sbom.json "$output_dir"/build-manifest.json; do
+            [[ -f "$f" ]] && assets+=("$f")
+        done
+        if [[ ${#assets[@]} -gt 0 ]]; then
+            gh release upload "$tag" "${assets[@]}" --clobber
+            echo "Uploaded ${#assets[@]} assets to release $tag"
+        else
+            echo "No assets found in $output_dir"
+        fi
+    fi
+}
+
 usage() {
     cat <<EOF
 Usage: $0 <command> [args]
 
 Commands:
-  init <dir>                  Initialize repo structure
+  init <dir>                  Initialize repo structure (APT + Arch + YUM)
   add <pkg> <dir>             Add package (deb/rpm/pkg.tar.zst)
-  release <dir> [--gpg-key K] Generate Release + Release.gpg + InRelease
+  release <dir> [--gpg-key K] Generate APT Release + sign Arch db
+  upload [tag]                Upload packages to GitHub Release (default: packages)
   deploy <dir> [msg]          Push to gh-pages
 EOF
 }
@@ -188,5 +276,9 @@ case "${1:-help}" in
         ;;
     release) shift; cmd_release "$@" ;;
     deploy) shift; cmd_deploy "$@" ;;
+    upload)
+        shift
+        cmd_upload "$@"
+        ;;
     *) usage ;;
 esac
