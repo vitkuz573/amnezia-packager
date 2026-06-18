@@ -61,5 +61,6 @@ run_extract() {
     sudo rm -rf "$target/installerResources" 2>/dev/null || true
 
     STAGING_DIR="$target"
+    export STAGING_DIR
     succ "Extracted → ${STAGING_DIR} ($(du -sh "$STAGING_DIR" | cut -f1))"
 }

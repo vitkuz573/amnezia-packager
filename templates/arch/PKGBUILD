@@ -1,0 +1,73 @@
+# Maintainer: Vitaly Kuzyaev <vitkuz573@gmail.com>
+# Contributor: AmneziaVPN <support@amnezia.com>
+#
+# Arch Linux PKGBUILD for AmneziaVPN binary package
+# Built from upstream GitHub release, wrapped via amnezia-packager
+#
+# https://github.com/vitkuz573/amnezia-packager
+
+pkgname=amnezia-vpn-bin
+pkgver=4.8.19.0
+pkgrel=1
+pkgdesc="AmneziaVPN — Client of your self-hosted VPN (binary release)"
+arch=('x86_64')
+url="https://github.com/amnezia-vpn/amnezia-client"
+license=('GPL3')
+depends=(
+    'xcb-util-cursor'
+    'libxcb'
+    'xcb-util-wm'
+    'xcb-util-keysyms'
+    'libglvnd'
+    'libxkbcommon-x11'
+)
+provides=("${pkgname%-bin}")
+conflicts=("${pkgname%-bin}")
+source=("${url}/releases/download/v${pkgver}/AmneziaVPN_${pkgver}_linux_x64.tar")
+sha256sums=('SKIP')
+
+package() {
+    cd "${srcdir}"
+
+    # Extract tarball
+    tar xf "AmneziaVPN_${pkgver}_linux_x64.tar"
+
+    # Find and run IFW installer headless
+    local installer
+    installer=$(find . -name '*Installer*.bin' -type f | head -1)
+    chmod +x "$installer"
+
+    # Install to pkgdir
+    sudo env QT_QPA_PLATFORM=offscreen "$installer" install \
+        --root "${pkgdir}/opt/AmneziaVPN" \
+        --accept-licenses \
+        --confirm-command
+
+    # Remove IFW artefacts
+    rm -f "${pkgdir}/opt/AmneziaVPN/maintenancetool" \
+          "${pkgdir}/opt/AmneziaVPN/maintenancetool.dat" \
+          "${pkgdir}/opt/AmneziaVPN/maintenancetool.ini" \
+          "${pkgdir}/opt/AmneziaVPN/installer.dat" \
+          "${pkgdir}/opt/AmneziaVPN/InstallationLog.txt"
+
+    # Fix desktop Exec
+    sed -i 's|^Exec=.*|Exec=AmneziaVPN|' "${pkgdir}/opt/AmneziaVPN/AmneziaVPN.desktop"
+
+    # Post-install integration
+    mkdir -p "${pkgdir}/usr/local/bin"
+    ln -sf "/opt/AmneziaVPN/client/AmneziaVPN.sh" "${pkgdir}/usr/local/bin/amneziavpn"
+
+    install -Dm644 "${pkgdir}/opt/AmneziaVPN/AmneziaVPN.desktop" \
+        "${pkgdir}/usr/share/applications/AmneziaVPN.desktop"
+
+    install -Dm644 "${pkgdir}/opt/AmneziaVPN/AmneziaVPN.png" \
+        "${pkgdir}/usr/share/pixmaps/AmneziaVPN.png"
+
+    install -Dm644 "${pkgdir}/opt/AmneziaVPN/AmneziaVPN.service" \
+        "${pkgdir}/etc/systemd/system/AmneziaVPN.service"
+
+    # Permissions
+    chmod -R a-w "${pkgdir}/opt/AmneziaVPN/"
+    chmod 755 "${pkgdir}/opt/AmneziaVPN/client/bin/AmneziaVPN"
+    chmod 755 "${pkgdir}/opt/AmneziaVPN/service/bin/AmneziaVPN-service"
+}

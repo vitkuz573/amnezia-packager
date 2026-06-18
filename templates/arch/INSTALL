@@ -1,0 +1,43 @@
+post_install() {
+    APP_NAME="${APP_NAME}"
+    APP_PATH="${INSTALL_DIR}"
+
+    ln -sf "${APP_PATH}/client/${CLIENT_SCRIPT}" "/usr/local/bin/${APP_USER}" || :
+    mkdir -p /var/log/${APP_NAME} || :
+    killall -9 "${APP_NAME}" 2>/dev/null || :
+
+    if command -v systemctl >/dev/null 2>&1; then
+        cp -f "${APP_PATH}/${SERVICE_FILE}" /etc/systemd/system/ || :
+        chmod 644 /etc/systemd/system/${SERVICE_FILE} || :
+        systemctl daemon-reload || :
+        systemctl enable "${APP_NAME}" 2>/dev/null || :
+        systemctl start "${APP_NAME}" 2>/dev/null || :
+    fi
+
+    cp -f "${APP_PATH}/${DESKTOP_FILE}" /usr/share/applications/ || :
+    cp -f "${APP_PATH}/${ICON_FILE}" /usr/share/pixmaps/ || :
+    chmod 644 /usr/share/applications/${DESKTOP_FILE} || :
+
+    chmod 755 "${APP_PATH}/client/bin/${APP_NAME}"        || :
+    chmod 755 "${APP_PATH}/service/bin/AmneziaVPN-service" || :
+    chmod 555 "${APP_PATH}/client/${CLIENT_SCRIPT}"         || :
+    chmod 555 "${APP_PATH}/service/${SERVICE_SCRIPT}"       || :
+
+    chmod -R a-w "${APP_PATH}/" 2>/dev/null || :
+}
+
+pre_remove() {
+    APP_NAME="${APP_NAME}"
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl stop "${APP_NAME}" 2>/dev/null || :
+        systemctl disable "${APP_NAME}" 2>/dev/null || :
+        rm -f /etc/systemd/system/${SERVICE_FILE} || :
+        systemctl daemon-reload || :
+    fi
+    killall -9 "${APP_NAME}" 2>/dev/null || :
+    rm -f "/usr/local/bin/${APP_USER}" || :
+    rm -f "/usr/share/applications/${DESKTOP_FILE}" || :
+    rm -f "/usr/share/pixmaps/${ICON_FILE}" || :
+}
+
+post_remove() { :; }

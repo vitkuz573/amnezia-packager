@@ -1,0 +1,54 @@
+# ${PKGNAME}.spec — RPM spec for ${PACKAGE_DESCRIPTION}
+%define _prefix ${INSTALL_DIR}
+%define _bindir /usr/local/bin
+
+Name:           ${PKGNAME}
+Version:        ${PKGVER}
+Release:        1
+Summary:        ${PACKAGE_DESCRIPTION}
+License:        ${PACKAGE_LICENSE}
+URL:            ${PACKAGE_URL}
+Group:          Applications/Communications
+AutoReqProv:    no
+
+Requires:       ${DEPS_RPM//, /%{?__newline}Requires:       }
+
+%description
+${PACKAGE_DESCRIPTION}
+
+%install
+mkdir -p %{buildroot}%{_prefix}
+cp -a ${STAGING_DIR}/. %{buildroot}%{_prefix}/
+
+%post
+ln -sf %{_prefix}/client/${CLIENT_SCRIPT} %{_bindir}/${APP_USER} || :
+mkdir -p /var/log/${APP_NAME} || :
+killall -9 ${APP_NAME} 2>/dev/null || :
+if command -v systemctl >/dev/null 2>&1; then
+    cp -f %{_prefix}/${SERVICE_FILE} /etc/systemd/system/ || :
+    chmod 644 /etc/systemd/system/${SERVICE_FILE} || :
+    systemctl daemon-reload || :
+    systemctl enable ${APP_NAME} 2>/dev/null || :
+    systemctl start ${APP_NAME} 2>/dev/null || :
+fi
+cp -f %{_prefix}/${DESKTOP_FILE} /usr/share/applications/ || :
+cp -f %{_prefix}/${ICON_FILE} /usr/share/pixmaps/ || :
+chmod -R a-w %{_prefix}/ 2>/dev/null || true
+
+%preun
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl stop ${APP_NAME} 2>/dev/null || :
+    systemctl disable ${APP_NAME} 2>/dev/null || :
+    rm -f /etc/systemd/system/${SERVICE_FILE} || :
+    systemctl daemon-reload || :
+fi
+killall -9 ${APP_NAME} 2>/dev/null || :
+rm -f %{_bindir}/${APP_USER} || :
+rm -f /usr/share/applications/${DESKTOP_FILE} || :
+rm -f /usr/share/pixmaps/${ICON_FILE} || :
+
+%files
+%defattr(-,root,root)
+%{_prefix}/
+%attr(755,root,root) %{_prefix}/client/bin/${APP_NAME}
+%attr(755,root,root) %{_prefix}/service/bin/AmneziaVPN-service

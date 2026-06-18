@@ -7,6 +7,7 @@
 
 source "${PROJECT_ROOT}/src/core/logger.sh"
 source "${PROJECT_ROOT}/src/core/bootstrap.sh"
+source "${PROJECT_ROOT}/src/core/sbom.sh"
 
 # ── Hooks ──────────────────────────────────────────────────────────────
 pipeline::hook() {
@@ -156,6 +157,7 @@ pipeline::build_single() {
 
     pipeline::sign
     pipeline::write_manifest
+    sbom::generate "${OUTPUT_DIR}/${APP_USER}_${RELEASE_VERSION}-sbom.json" || true
     succ "Done → ${OUTPUT_DIR}/"
 }
 

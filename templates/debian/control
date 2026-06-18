@@ -1,0 +1,9 @@
+Package: ${PKGNAME}
+Version: ${PKGVER}
+Section: net
+Priority: optional
+Architecture: amd64
+Maintainer: ${PACKAGE_MAINTAINER}
+Depends: ${DEPS_DEB}
+Installed-Size: ${PKGSIZE_KB}
+Description: ${PACKAGE_DESCRIPTION}
