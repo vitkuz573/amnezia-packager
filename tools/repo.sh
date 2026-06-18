@@ -280,7 +280,7 @@ cmd_upload() {
         local assets=()
         for f in "$output_dir"/*.deb "$output_dir"/*.pkg.tar.zst "$output_dir"/*.rpm \
                  "$output_dir"/*.sig "$output_dir"/*-sbom.json "$output_dir"/build-manifest.json; do
-            [[ -f "$f" ]] && assets+=("$f")
+            [[ -f "$f" && -s "$f" ]] && assets+=("$f")
         done
         if [[ ${#assets[@]} -gt 0 ]]; then
             gh release upload "$tag" "${assets[@]}" --clobber

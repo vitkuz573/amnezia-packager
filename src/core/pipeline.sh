@@ -83,10 +83,12 @@ pipeline::sign() {
     local artifact; artifact="$(get_artifact)"
     [[ -z "$artifact" || ! -f "$artifact" ]] && return
     info "Signing: $(basename "$artifact")"
-    gpg --detach-sign --armor --default-key "${GPG_KEY}" -o "${artifact}.sig" "$artifact" 2>/dev/null || {
+    if gpg --detach-sign --armor --default-key "${GPG_KEY}" -o "${artifact}.sig" "$artifact"; then
+        succ "Signature: ${artifact}.sig"
+    else
+        rm -f "${artifact}.sig"
         warn "GPG signing failed — check GPG_KEY=${GPG_KEY}"
-    }
-    [[ -f "${artifact}.sig" ]] && succ "Signature: ${artifact}.sig"
+    fi
 }
 
 # ── Plan (dry-run) ────────────────────────────────────────────────────
