@@ -1,0 +1,71 @@
+version: '0.1.{build}'
+
+image: Ubuntu2204
+
+branches:
+  only:
+    - main
+
+skip_commits:
+  files:
+    - '*.md'
+    - docs/**
+    - .github/**
+
+environment:
+  OUTPUT_DIR: /tmp/packages
+  REPO_DIR: /tmp/repo
+  GPG_KEY: AmneziaVPN Repository
+  CORRELATION_ID: ci-{build}
+
+install:
+  - sh: sudo apt-get update -qq
+  - sh: sudo apt-get install -y -qq jq curl shellcheck bats dpkg-dev fakeroot
+
+build_script:
+  - sh: shellcheck -x build.sh src/**/*.sh tools/*.sh
+  - sh: bats tests/ || true
+  - sh: mkdir -p "$OUTPUT_DIR" "$REPO_DIR"
+  - sh: ./build.sh -d -o "$OUTPUT_DIR" --manifest
+
+after_build:
+  - sh: |
+      if [ -n "$(ls $OUTPUT_DIR/*.deb 2>/dev/null)" ]; then
+        tools/repo.sh init "$REPO_DIR"
+        tools/repo.sh add "$OUTPUT_DIR"/*.deb "$REPO_DIR"
+        tools/repo.sh release "$REPO_DIR"
+        tools/repo.sh deploy "$REPO_DIR" "repo: update $(date -u +%Y-%m-%d)"
+      fi
+
+artifacts:
+  - path: /tmp/packages/*.deb
+    name: deb
+  - path: /tmp/packages/*.pkg.tar.zst
+    name: arch
+  - path: /tmp/packages/*.rpm
+    name: rpm
+  - path: /tmp/packages/*-sbom.json
+    name: sbom
+  - path: /tmp/packages/build-manifest.json
+    name: manifest
+
+for:
+  -
+    branches:
+      only:
+        - /v\d+\.\d+\.\d+.*/
+    environment:
+      GPG_SIGN: --sign
+    artifacts:
+      - path: /tmp/packages/*.deb
+      - path: /tmp/packages/*.sig
+      - path: /tmp/packages/build-manifest.json
+    deploy:
+      - provider: GitHub
+        auth_token: $(GITHUB_TOKEN)
+        description: 'AmneziaVPN $(APPVEYOR_REPO_TAG_NAME)'
+        draft: false
+        prerelease: false
+        force_update: true
+        on:
+          appveyor_repo_tag: true
