@@ -15,6 +15,7 @@ set -euo pipefail
 
 REPO_BRANCH="gh-pages"
 REPO_URL="${REPO_URL:-https://github.com/vitkuz573/amnezia-packager.git}"
+GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 
 cmd_init() {
     local dir="${1:-repo}"
@@ -136,18 +137,25 @@ cmd_deploy() {
     local dir="${1:-repo}"
     local msg="${2:-repo update $(date -u +%Y-%m-%d)}"
 
+    # Use token auth if available (CI)
+    local push_url="$REPO_URL"
+    if [[ -n "$GITHUB_TOKEN" ]]; then
+        local repo_path="${REPO_URL#https://github.com/}"
+        push_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${repo_path}"
+    fi
+
     if [[ -d "${dir}/.git" ]]; then
         cd "$dir"
         git add -A
         git commit -m "$msg" || true
-        git push origin "$REPO_BRANCH"
+        git push "$push_url" "$REPO_BRANCH"
     else
         cd "$dir"
         git init
         git checkout -b "$REPO_BRANCH"
         git add -A
         git commit -m "$msg"
-        git remote add origin "$REPO_URL"
+        git remote add origin "$push_url"
         git push -f origin "$REPO_BRANCH"
     fi
 
