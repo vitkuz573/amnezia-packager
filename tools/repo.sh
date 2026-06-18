@@ -81,7 +81,7 @@ cmd_release() {
         apt-ftparchive release "$dist_dir" > "$dist_dir/Release"
     else
         # Manual Release file generation
-        local date_rfc=$(date -u +"%a, %d %b %Y %H:%M:%S UTC")
+        local date_rfc=$(LC_ALL=C date -u +"%a, %d %b %Y %H:%M:%S UTC")
         {
             echo "Origin: AmneziaVPN Repository"
             echo "Label: AmneziaVPN"
@@ -93,36 +93,28 @@ cmd_release() {
             echo "Description: AmneziaVPN native packages"
         } > "$dist_dir/Release"
 
-        # Append hashes for Packages
-        local pkg_file="main/binary-amd64/Packages"
-        if [[ -f "${dist_dir}/${pkg_file}" ]]; then
-            local size=$(stat -c%s "${dist_dir}/${pkg_file}" 2>/dev/null || stat -f%z "${dist_dir}/${pkg_file}" 2>/dev/null)
-            local sha256=$(sha256sum "${dist_dir}/${pkg_file}" | cut -d' ' -f1)
-            local sha1=$(sha1sum "${dist_dir}/${pkg_file}" | cut -d' ' -f1)
-            local md5=$(md5sum "${dist_dir}/${pkg_file}" | cut -d' ' -f1)
+        # Collect hashes for all package indices
+        local sha256_lines="" sha1_lines="" md5_lines=""
+        for pkg_file in "main/binary-amd64/Packages" "main/binary-amd64/Packages.gz"; do
+            local f="${dist_dir}/${pkg_file}"
+            if [[ -f "$f" ]]; then
+                local size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null)
+                local sha256=$(sha256sum "$f" | cut -d' ' -f1)
+                local sha1=$(sha1sum "$f" | cut -d' ' -f1)
+                local md5=$(md5sum "$f" | cut -d' ' -f1)
+                sha256_lines+=" $sha256 $size $pkg_file"$'\n'
+                sha1_lines+=" $sha1 $size $pkg_file"$'\n'
+                md5_lines+=" $md5 $size $pkg_file"$'\n'
+            fi
+        done
+        if [[ -n "$sha256_lines" ]]; then
             {
                 echo "SHA256:"
-                echo " $sha256 $size $pkg_file"
+                echo -n "$sha256_lines"
                 echo "SHA1:"
-                echo " $sha1 $size $pkg_file"
+                echo -n "$sha1_lines"
                 echo "MD5Sum:"
-                echo " $md5 $size $pkg_file"
-            } >> "$dist_dir/Release"
-        fi
-
-        pkg_file="main/binary-amd64/Packages.gz"
-        if [[ -f "${dist_dir}/${pkg_file}" ]]; then
-            local size=$(stat -c%s "${dist_dir}/${pkg_file}" 2>/dev/null || stat -f%z "${dist_dir}/${pkg_file}" 2>/dev/null)
-            local sha256=$(sha256sum "${dist_dir}/${pkg_file}" | cut -d' ' -f1)
-            local sha1=$(sha1sum "${dist_dir}/${pkg_file}" | cut -d' ' -f1)
-            local md5=$(md5sum "${dist_dir}/${pkg_file}" | cut -d' ' -f1)
-            {
-                echo "SHA256:"
-                echo " $sha256 $size $pkg_file"
-                echo "SHA1:"
-                echo " $sha1 $size $pkg_file"
-                echo "MD5Sum:"
-                echo " $md5 $size $pkg_file"
+                echo -n "$md5_lines"
             } >> "$dist_dir/Release"
         fi
     fi
