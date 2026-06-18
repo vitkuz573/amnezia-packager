@@ -7,24 +7,27 @@ Enterprise-grade build system that downloads [AmneziaVPN](https://github.com/amn
 # → amneziavpn-4.8.19.0-1-x86_64.pkg.tar.zst + .sig + sbom + manifest
 ```
 
+Public APT and Arch repos available at `vitkuz573.github.io/amnezia-packager/` — see [docs/repository.md](docs/repository.md).
+
 ## Features
 
 - **Pipeline architecture** — fetch → extract → verify → package with pre/post hooks at each stage
 - **Multi-format** — `.deb` (Debian/Ubuntu), `.pkg.tar.zst` (Arch Linux), `.rpm` (Fedora/RHEL)
 - **Layered JSON config** — default → local → profile → env → CLI with JSON Schema validation
-- **Template engine** — envsubst-based metadata generation for control files, PKGBUILD, spec
-- **SBOM generation** — CycloneDX 1.5 bill of materials with SHA-256 hashes for every binary
+- **Template engine** — envsubst-based metadata generation for control files, PKGINFO, spec
+- **SBOM generation** — CycloneDX 1.5 bill of materials with SHA-256 for every binary
 - **Build manifest** — JSON manifest per build with artifact metadata, timestamps, config snapshot
-- **GPG signing** — sign packages with armor, generate `.sig` files
+- **GPG signing** — sign packages and repo metadata (APT Release, Arch db)
 - **Caching** — API response cache (1h TTL), tarball reuse across rebuilds
 - **Parallel builds** — `--all --parallel` spawns simultaneous deb + rpm + arch
 - **Health check** — post-install validation tool for binary, service, desktop entry, filesystem
-- **Package repo** — APT/YUM repository management with gh-pages deployment
-- **Auto-discovery** — drop a new `src/packager/*.sh`, it's found automatically
-- **Headless IFW** — uses Qt IFW's built-in CLI (`--accept-licenses --confirm-command`) instead of fragile binary extraction
-- **Dev profiles** — `dev.json` (debug + JSON logging), `prod.json` (sign + manifest + cache)
-- **Docker** — multi-stage reproducible build with Docker Compose
+- **Package repo** — APT (`tools/repo.sh`) + Arch (`repo-add`) + YUM + GitHub Releases upload
+- **Auto-discovery** — drop `src/packager/*.sh`, it's found automatically
+- **Headless IFW** — Qt IFW's built-in CLI (`--accept-licenses --confirm-command`)
+- **Dev/prod profiles** — `dev.json` (debug), `prod.json` (sign + manifest + cache)
+- **Docker** — multi-stage reproducible build
 - **Vagrant** — multi-distro test boxes (Arch, Debian, Fedora)
+- **CI** — AppVeyor: lint → test → build → deploy gh-pages + GitHub Releases
 
 ## Quick Start
 
@@ -39,7 +42,7 @@ Enterprise-grade build system that downloads [AmneziaVPN](https://github.com/amn
 ./build.sh -d --tar ~/Downloads/AmneziaVPN_4.8.19.0_linux_x64.tar
 
 # Build all formats with production profile, signed
-./build.sh -a --all --profile prod --sign --gpg-key 0xDEADBEEF
+./build.sh --all --profile prod --sign --gpg-key 0xDEADBEEF
 
 # Dry-run to preview the pipeline
 ./build.sh -n --tar ~/Downloads/AmneziaVPN_4.8.19.0_linux_x64.tar
@@ -49,7 +52,7 @@ Enterprise-grade build system that downloads [AmneziaVPN](https://github.com/amn
 
 - Bash 4.4+, `tar`, `curl`, `sudo`
 - Packager-specific: `dpkg-deb` (Debian), `makepkg` (Arch), `rpmbuild` (RPM)
-- Optional: `jq` (JSON config), `gpg` (signing), `python3` (SBOM), `bats` (tests)
+- Optional: `jq` (JSON config), `gpg` (signing), `python3` (SBOM), `bats` (tests), `gh` (Release upload)
 
 ## Usage
 
@@ -114,17 +117,7 @@ docker compose run --rm builder
 
 See [docs/config.md](docs/config.md) for the full reference.
 
-Configuration is layered (later layers win):
-
-| Layer | File | Source |
-|-------|------|--------|
-| 1 — Default | `config/default.json` | Repository |
-| 2 — Local | `config/local.json` | Gitignored, per-machine |
-| 3 — Profile | `config/profiles/{profile}.json` | `--profile` flag |
-| 4 — Environment | env vars like `RELEASE_VERSION` | Shell |
-| 5 — CLI flags | `--version`, `--output`, etc. | Command line |
-
-All files validated against `config/schema.json` (requires `jq`).
+Layered (later wins): `default.json` ← `local.json` ← `profile` ← env vars ← CLI flags. Validated against JSON Schema via `jq`.
 
 ## Project Structure
 
@@ -134,6 +127,9 @@ All files validated against `config/schema.json` (requires `jq`).
 ├── Dockerfile                   # Multi-stage Docker build
 ├── docker-compose.yml           # Compose for development
 ├── Vagrantfile                  # Multi-distro test boxes
+├── .appveyor.yml                # AppVeyor CI pipeline
+├── renovate.json                # Renovate dependency updates
+├── repo-public-key.asc          # GPG public key for repos
 ├── config/
 │   ├── default.json             # Base configuration
 │   ├── schema.json              # JSON Schema validation
@@ -144,7 +140,7 @@ All files validated against `config/schema.json` (requires `jq`).
 ├── templates/
 │   ├── arch/
 │   │   ├── PKGBUILD             # Arch PKGBUILD template
-│   │   ├── PKGINFO              # Arch package metadata
+│   │   ├── PKGINFO              # Arch .PKGINFO metadata
 │   │   └── INSTALL              # Arch install scripts
 │   ├── debian/
 │   │   ├── control              # Debian control template
@@ -171,59 +167,70 @@ All files validated against `config/schema.json` (requires `jq`).
 │       └── rpm.sh               # RPM .rpm builder
 ├── tools/
 │   ├── healthcheck.sh           # Post-install validation
-│   └── repo.sh                  # APT/YUM repo management
+│   └── repo.sh                  # APT/Arch/YUM repo management + Release upload
 ├── tests/
 │   └── core.bats                # Bats test suite
-└── .github/
-    └── workflows/
-        └── build.yml            # CI/CD pipeline
+└── docs/
+    ├── architecture.md          # Full architecture guide
+    ├── config.md                # Configuration reference
+    ├── repository.md            # APT/Arch repo usage guide
+    └── ci.md                    # AppVeyor CI pipeline docs
 ```
 
-## Install Built Packages
+## Install from Repos
 
-**Arch Linux:**
+**APT (Debian/Ubuntu):**
 ```bash
-sudo pacman -U amneziavpn-*.pkg.tar.zst
+curl -sS https://vitkuz573.github.io/amnezia-packager/repo-public-key.asc \
+  | sudo gpg --dearmor -o /usr/share/keyrings/amneziavpn.gpg
+echo "deb [signed-by=/usr/share/keyrings/amneziavpn.gpg] https://vitkuz573.github.io/amnezia-packager/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/amneziavpn.list
+sudo apt update && sudo apt install amneziavpn
 ```
 
-**Debian/Ubuntu:**
+**Arch Linux (pacman):**
 ```bash
-sudo dpkg -i amneziavpn_*_amd64.deb
-sudo apt install -f
+curl -sS https://vitkuz573.github.io/amnezia-packager/repo-public-key.asc \
+  | sudo pacman-key --add -
+sudo pacman-key --lsign-key repo@amneziavpn.local
+
+cat >> /etc/pacman.conf <<"EOF"
+[amneziavpn]
+SigLevel = Optional TrustAll
+Server = https://github.com/vitkuz573/amnezia-packager/releases/download/packages
+Server = https://vitkuz573.github.io/amnezia-packager/arch
+EOF
+
+sudo pacman -Sy && sudo pacman -S amneziavpn
 ```
 
-**Fedora/RHEL:**
+**Manual install:**
 ```bash
-sudo rpm -i amneziavpn-*.rpm
+sudo dpkg -i amneziavpn_*_amd64.deb && sudo apt install -f   # Debian
+sudo pacman -U amneziavpn-*.pkg.tar.zst                       # Arch
+sudo rpm -i amneziavpn-*.rpm                                  # Fedora
 ```
 
-After installation:
-- systemd service `amneziavpn.service` auto-starts
-- CLI at `/usr/local/bin/amneziavpn`
-- Desktop entry and icon registered
-- Logs at `/var/log/AmneziaVPN/`
+After installation: systemd service `amneziavpn.service` auto-starts, CLI at `/usr/local/bin/amneziavpn`.
 
-## Post-Install Validation
+## Package Repository Management
 
 ```bash
-tools/healthcheck.sh
-# ✔ Service is active
-# ✔ Binary found
-# ✔ CLI symlink works
-# ✔ Desktop entry registered
-```
+# Initialize repo structure (APT + Arch + YUM)
+tools/repo.sh init /srv/repo
 
-## Package Repository Deployment
+# Add packages (generates db for apt/arch/yum)
+tools/repo.sh add amneziavpn_4.8.19.0_amd64.deb /srv/repo
+tools/repo.sh add amneziavpn-4.8.19.0-1-x86_64.pkg.tar.zst /srv/repo
 
-```bash
-# Initialize a repo
-tools/repo.sh init apt /tmp/repo
+# Sign Release + Arch db
+tools/repo.sh release /srv/repo --gpg-key 0xDEADBEEF
 
-# Add packages
-tools/repo.sh add apt /tmp/repo amneziavpn_*.deb
+# Upload packages to GitHub Releases (tag: packages)
+tools/repo.sh upload packages
 
-# Deploy to gh-pages
-tools/repo.sh deploy apt /tmp/repo
+# Deploy metadata to gh-pages
+tools/repo.sh deploy /srv/repo "repo: update $(date -u +%Y-%m-%d)"
 ```
 
 ## Adding a New Packager
@@ -248,41 +255,31 @@ Auto-discovered automatically — no central registry.
 ## Development
 
 ```bash
-# Pre-commit hooks
-pre-commit install
-
-# Run tests
-make test
-
-# Lint
-make lint
-
-# Format
-make fmt
-
-# Dry-run
-./build.sh -n --tar ~/Downloads/AmneziaVPN_*.tar
-
-# Debug logging
-LOG_LEVEL=debug ./build.sh -a --tar ~/Downloads/AmneziaVPN_*.tar
+pre-commit install              # Pre-commit hooks
+make test                       # Bats tests
+make lint                       # Shellcheck
+make fmt                        # shfmt
+./build.sh -n --tar ~/Downloads/AmneziaVPN_*.tar  # Dry-run
+LOG_LEVEL=debug ./build.sh -a --tar ~/Downloads/AmneziaVPN_*.tar  # Debug
 ```
 
 ## Vagrant
 
 ```bash
-vagrant up            # Start all boxes
-vagrant up archlinux  # Single box
+vagrant up archlinux   # Arch box
 vagrant ssh archlinux
 cd /vagrant && ./build.sh -a
 ```
 
-## CI/CD
+## CI/CD (AppVeyor)
 
-GitHub Actions on push:
+See [docs/ci.md](docs/ci.md) for the full pipeline reference.
+
+On push to `main`:
 - `lint` — shellcheck
 - `test` — bats unit tests
-- `build-deb` / `build-arch` — parallel builds
-- `release` — on `v*` tags, uploads artifacts (deb, pkg.tar.zst, .sig, sbom, manifest)
+- `build-deb` — build .deb, init repo, sign, deploy to gh-pages
+- On tags `v*`: upload artifacts to GitHub Releases
 
 ## License
 

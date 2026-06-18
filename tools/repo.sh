@@ -154,6 +154,16 @@ cmd_release() {
 
     echo "APT Release ready at ${dist_dir}/Release"
 
+    # Sign YUM repomd.xml
+    local yum_dir="${dir}/yum"
+    if [[ -f "${yum_dir}/repodata/repomd.xml" ]]; then
+        if [[ -n "$gpg_key" ]]; then
+            gpg --detach-sign --armor --default-key "$gpg_key" \
+                -o "${yum_dir}/repodata/repomd.xml.asc" "${yum_dir}/repodata/repomd.xml"
+            echo "Signed YUM repomd.xml with key $gpg_key"
+        fi
+    fi
+
     # Sign Arch repo database
     local arch_dir="${dir}/arch"
     if [[ -d "$arch_dir" ]]; then

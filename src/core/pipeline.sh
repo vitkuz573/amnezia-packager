@@ -8,6 +8,7 @@
 source "${PROJECT_ROOT}/src/core/logger.sh"
 source "${PROJECT_ROOT}/src/core/bootstrap.sh"
 source "${PROJECT_ROOT}/src/core/sbom.sh"
+source "${PROJECT_ROOT}/src/core/provenance.sh"
 
 # ── Hooks ──────────────────────────────────────────────────────────────
 pipeline::hook() {
@@ -158,6 +159,12 @@ pipeline::build_single() {
     pipeline::sign
     pipeline::write_manifest
     sbom::generate "${OUTPUT_DIR}/${APP_USER}_${RELEASE_VERSION}-sbom.json" || true
+
+    local artifact; artifact="$(get_artifact)"
+    local provenance_file="${OUTPUT_DIR}/${APP_USER}_${RELEASE_VERSION}-provenance.json"
+    provenance::generate "$provenance_file" "${SOURCE_SHA256:-}" "${TAR_URL:-}" "$artifact"
+    provenance::sign "$provenance_file" "${GPG_KEY:-}"
+
     succ "Done → ${OUTPUT_DIR}/"
 }
 

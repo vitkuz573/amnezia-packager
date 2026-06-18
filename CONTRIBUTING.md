@@ -7,26 +7,23 @@ src/
 ├── core/         # Framework: logger, config, template, bootstrap, pipeline, sbom
 ├── stage/        # Pipeline stages: fetch, extract, verify
 └── packager/     # Output formats: deb, arch, rpm
-templates/        # envsubst templates for package metadata
-config/           # JSON config defaults, schema, profiles
-tools/            # Health check, repo management
+templates/        # envsubst templates (PKGBUILD, PKGINFO, control, postinst, spec)
+config/           # JSON config default + schema + profiles
+tools/            # repo.sh (APT/Arch/YUM), healthcheck.sh
 tests/            # Bats test suite
 ```
 
 ## Development Environment
 
 ```bash
-# Install pre-commit hooks
 pre-commit install
-
-# Enable direnv (optional)
-direnv allow
+direnv allow                 # Optional: loads PROJECT_ROOT, PATH_add tools
 ```
 
 ## Adding a New Packager
 
 1. Create `src/packager/<name>.sh`
-2. Source the interface and register:
+2. Source interface and register:
 
 ```bash
 source "${PROJECT_ROOT}/src/packager/00-interface.sh"
@@ -38,101 +35,81 @@ get_deps()      { echo "dep1 dep2"; }
 ```
 
 3. Create templates in `templates/<name>/`
-4. Auto-discovery picks it up — no central registry.
+4. Auto-discovery picks it up.
 
 ## Template Engine
 
-Templates use `envsubst` with explicit variable lists to prevent accidental substitution of shell runtime variables:
+`src/core/template.sh` renders metadata files via `envsubst` with explicit variable lists. Only config vars are substituted — shell runtime vars like `APP_PATH` are preserved.
 
-```bash
-# In template.sh — only these vars are substituted:
-TEMPLATE_VARS=(APP_NAME INSTALL_DIR CLIENT_SCRIPT SERVICE_SCRIPT DESKTOP_FILE ICON_FILE SERVICE_FILE)
+### Template Variables
 
-# Shell runtime vars like APP_PATH are preserved as-is in postinst/prerm scripts
-```
+| Variable | Source | Used In |
+|----------|--------|---------|
+| `APP_NAME`, `INSTALL_DIR` | `app.*` | All templates |
+| `DESKTOP_FILE`, `ICON_FILE`, `SERVICE_FILE` | `app.*` | postinst, prerm, spec, INSTALL |
+| `DEPS_DEB` | `dependencies.deb` | `control` (comma-separated) |
+| `DEPS_ARCH` | `dependencies.arch` | `PKGINFO` (via `DEPS_ARCH_LINES`) |
+| `DEPS_RPM` | `dependencies.rpm` | `spec` (via `DEPS_RPM_LINES`) |
+| `PKGVER`, `PKGNAME`, `PKGSIZE_KB`, `PKGSIZE_BYTES` | computed | All templates |
 
-See `src/core/template.sh` for details. Add new vars to `_REQUIRED_TEMPLATE_VARS`.
+### Adding a New Variable
+
+1. Add to `_REQUIRED_TEMPLATE_VARS` in `src/core/template.sh`
+2. Add default to `config/default.json`
+3. Export in `template::render` and add to the envsubst `$vars` list
+4. Reference as `${VAR_NAME}` in any template
 
 ## Pipeline Stages
 
-Each stage lives in `src/stage/<name>.sh` with a single entry point `run_<name>()`.
+| Stage | Script | Creates |
+|-------|--------|---------|
+| fetch | `src/stage/fetch.sh` | Tarball in `BUILD_DIR` |
+| extract | `src/stage/extract.sh` | Application files in `TARGET_DIR` |
+| verify | `src/stage/verify.sh` | — |
+| package | `src/packager/<target>.sh` | Native package in `OUTPUT_DIR` |
 
-Optional hooks (sourced automatically if defined):
-- `pre_<name>()` — runs before the stage
-- `post_<name>()` — runs after the stage
-
-Current stages and output directories:
-
-| Stage | Creates | Description |
-|-------|---------|-------------|
-| fetch | `BUILD_DIR/` | Downloads or links tarball |
-| extract | `TARGET_DIR/` | IFW installer → application files |
-| verify | — | Validates file layout |
-| package | `OUTPUT_DIR/` | Builds native package |
+Each stage exports `run_<stage>()`. Optional `pre_<stage>` / `post_<stage>` hooks are auto-discovered.
 
 ## Config System
 
-Configuration is layered (later wins):
+Layered (later wins):
 
 1. `config/default.json` — defaults
-2. `config/local.json` — gitignored, per-machine overrides
-3. `config/profiles/<profile>.json` — via `--profile` flag
+2. `config/local.json` — gitignored overrides
+3. `config/profiles/<profile>.json` — via `--profile`
 4. Environment variables
 5. CLI flags
 
-All config files validated against `config/schema.json` (requires `jq`). Without `jq`, falls back to env var overrides.
+Requires `jq`. Without `jq`, falls back to env var overrides only.
 
-Key config sections:
+## Package Repository (`tools/repo.sh`)
 
-| Section | Purpose |
+Manages three repo formats:
+
+| Command | Purpose |
 |---------|---------|
-| `app` | APP_NAME, INSTALL_DIR, file names |
-| `build` | OUTPUT_DIR, CACHE_DIR, profiles |
-| `github` | repo, API, release patterns |
-| `signing` | GPG key, sign_enabled |
-| `logging` | LOG_LEVEL, log format, log file |
-| `pipeline` | stages, packagers, parallel |
+| `init <dir>` | Create apt/ + arch/ + yum/ directories |
+| `add <pkg> <dir>` | Add deb/pkg.tar.zst/rpm, generate metadata |
+| `release <dir> --gpg-key K` | Sign APT Release + Arch db |
+| `upload [tag]` | Upload packages to GitHub Releases (tag: `packages`) |
+| `deploy <dir> [msg]` | Push metadata to gh-pages |
 
-## SBOM Module
-
-`src/core/sbom.sh` generates CycloneDX 1.5 SBOM:
-
-```bash
-sbom_generate "$target_dir" "$output_dir" "$app_name" "$version"
-# → amneziavpn_4.8.19.0-sbom.json
-```
-
-- Hashes all files in `client/bin/` using SHA-256
-- Encodes as `urn:uuid:<uuid>` for component refs
-- Uses python3 for JSON construction (no jq dependency)
+Key architecture: package binaries on GitHub Releases, repo metadata on gh-pages.
 
 ## Testing
 
 ```bash
-make test           # Run bats tests
-LOG_LEVEL=debug bats tests/core.bats  # Verbose output
+make test           # Bats tests
+LOG_LEVEL=debug bats tests/core.bats  # Verbose
 ```
 
 Test workflow:
-
-1. **Dry-run first**: `./build.sh -n --tar /path/to/AmneziaVPN_*.tar`
-2. **Build with local tarball**: `./build.sh -a --tar /path/to/AmneziaVPN_*.tar -o /tmp/test-pkg`
-3. **Verify artifact**: `ls -la /tmp/test-pkg/`
-4. **Test install**: `sudo dpkg -i /tmp/test-pkg/*.deb` (or `sudo pacman -U` for Arch)
-5. **Run health check**: `tools/healthcheck.sh`
-6. **Test uninstall**: `sudo dpkg -r amneziavpn` (or `sudo pacman -R amneziavpn`)
-
-### Docker-based Testing
-
-```bash
-# Test .deb in a clean Debian container
-sudo dpkg -i amneziavpn_*.deb
-sudo apt install -f
-```
+1. `./build.sh -n --tar /path/to/AmneziaVPN_*.tar` — dry-run
+2. `./build.sh -a --tar /path/to/AmneziaVPN_*.tar -o /tmp/pkg` — build
+3. `tools/healthcheck.sh` — post-install validation
+4. `docker run --rm -v /tmp/pkg:/pkgs debian:bookworm-slim bash` — test install
 
 ### Vagrant Testing
-
-Use Vagrant for multi-distro testing:
 
 ```bash
 vagrant up archlinux
@@ -144,10 +121,10 @@ cd /vagrant && ./build.sh -a --tar /vagrant/AmneziaVPN_*.tar
 
 - **Shell**: Bash 4.4+, `set -euo pipefail`
 - **Naming**: snake_case for variables, camelCase for functions
-- **Logging**: use `debug`, `info`, `succ`, `warn`, `err` (from `src/core/logger.sh`)
-- **No comments** in code — let the code speak
+- **Logging**: `debug`, `info`, `succ`, `warn`, `err` (from `src/core/logger.sh`)
+- **No comments** in code
 - **Guard against double-load**: `[[ -n "${__FOO_LOADED:-}" ]] && return; __FOO_LOADED=1`
-- **Templates**: all shell runtime vars (APP_PATH) must remain unsubstituted — only config vars in `TEMPLATE_VARS` get substituted
+- **Templates**: runtime shell vars (`APP_PATH`) must remain unsubstituted
 
 ## Commit Messages
 
@@ -157,6 +134,6 @@ Conventional commits:
 feat: add RPM packager
 fix: handle missing version in --tar mode
 docs: add architecture overview
-refactor: extract template engine from deb packager
+refactor: extract template engine
 test: add pipeline bats tests
 ```

@@ -2,15 +2,15 @@
 
 ## Overview
 
-Configuration is layered (later layers override earlier ones):
+Layered (later layers override earlier ones):
 
-1. **`config/default.json`** — base defaults, committed to repo
-2. **`config/local.json`** — per-machine overrides, gitignored
-3. **`profiles/<profile>.json`** — named profiles via `--profile` flag
-4. **Environment variables** — shell exports take precedence
+1. **`config/default.json`** — base defaults, committed
+2. **`config/local.json`** — per-machine, gitignored
+3. **`config/profiles/<profile>.json`** — via `--profile`
+4. **Environment variables** — shell exports
 5. **CLI flags** — highest priority
 
-All JSON files are validated against `config/schema.json` when `jq` is available.
+Validation against `config/schema.json` when `jq` is available.
 
 ## Config File Format
 
@@ -20,6 +20,7 @@ All JSON files are validated against `config/schema.json` when `jq` is available
 {
   "app": {
     "name": "AmneziaVPN",
+    "user": "amneziavpn",
     "install_dir": "/opt/AmneziaVPN",
     "desktop_file": "AmneziaVPN.desktop",
     "icon_file": "AmneziaVPN.png",
@@ -37,6 +38,11 @@ All JSON files are validated against `config/schema.json` when `jq` is available
     "repo": "amnezia-vpn/amnezia-client",
     "api_url": "https://api.github.com",
     "release_pattern": "AmneziaVPN_${version}_linux_x64.tar"
+  },
+  "dependencies": {
+    "deb": "libxcb-cursor0, libxcb-xinerama0, libxcb-icccm4, libxcb-keysyms1, libopengl0, libxkbcommon-x11-0",
+    "arch": "xcb-util-cursor libxcb xcb-util-wm xcb-util-keysyms libglvnd libxkbcommon-x11",
+    "rpm": "libxcb-cursor libxcb-xinerama libxcb-icccm4 libxcb-keysyms1 libopengl0 libxkbcommon-x11"
   },
   "signing": {
     "sign_enabled": false,
@@ -58,31 +64,13 @@ All JSON files are validated against `config/schema.json` when `jq` is available
 }
 ```
 
-### `config/schema.json`
-
-Validates the config structure with JSON Schema. Run manually:
-
-```bash
-jq -e --argfile data config/default.json --argfile schema config/schema.json \
-  'if $data | .. | . == null then error("null value") else . end | $data as $d | $schema as $s | $d' > /dev/null
-```
-
-Or just run `build.sh` — validation is automatic.
-
 ### `config/profiles/dev.json`
 
 ```json
 {
-  "logging": {
-    "level": "debug",
-    "format": "json"
-  },
-  "signing": {
-    "sign_enabled": false
-  },
-  "build": {
-    "cache_enabled": false
-  }
+  "logging": { "level": "debug", "format": "json" },
+  "signing": { "sign_enabled": false },
+  "build":   { "cache_enabled": false }
 }
 ```
 
@@ -90,28 +78,19 @@ Or just run `build.sh` — validation is automatic.
 
 ```json
 {
-  "logging": {
-    "level": "info"
-  },
-  "signing": {
-    "sign_enabled": true
-  },
-  "build": {
-    "cache_enabled": true
-  },
-  "pipeline": {
-    "parallel": false
-  }
+  "logging": { "level": "info" },
+  "signing": { "sign_enabled": true },
+  "build":   { "cache_enabled": true },
+  "pipeline": { "parallel": false }
 }
 ```
 
 ## Environment Variables
 
-Every config key can be set as an environment variable using `UPPER_SNAKE_CASE`:
-
 | Config Key | Env Var | Default |
 |------------|---------|---------|
 | `app.name` | `APP_NAME` | `AmneziaVPN` |
+| `app.user` | `APP_USER` | `amneziavpn` |
 | `app.install_dir` | `INSTALL_DIR` | `/opt/AmneziaVPN` |
 | `app.desktop_file` | `DESKTOP_FILE` | `AmneziaVPN.desktop` |
 | `app.icon_file` | `ICON_FILE` | `AmneziaVPN.png` |
@@ -125,6 +104,9 @@ Every config key can be set as an environment variable using `UPPER_SNAKE_CASE`:
 | `github.repo` | `GITHUB_REPO` | `amnezia-vpn/amnezia-client` |
 | `github.api_url` | `GITHUB_API_URL` | `https://api.github.com` |
 | `github.release_pattern` | `RELEASE_PATTERN` | `AmneziaVPN_\${version}_linux_x64.tar` |
+| `dependencies.deb` | `DEPS_DEB` | (comma+space separated) |
+| `dependencies.arch` | `DEPS_ARCH` | (space separated) |
+| `dependencies.rpm` | `DEPS_RPM` | (space separated) |
 | `signing.sign_enabled` | `SIGN_ENABLED` | `false` |
 | `signing.gpg_key` | `GPG_KEY` | `""` |
 | `signing.gpg_homedir` | `GPG_HOMEDIR` | `""` |
@@ -139,27 +121,42 @@ Every config key can be set as an environment variable using `UPPER_SNAKE_CASE`:
 
 ## Template Variables (envsubst)
 
-These variables are available in template files (`templates/`). They are the only variables that get substituted — shell runtime variables like `APP_PATH` are preserved as-is:
+These are the only variables that get substituted. Shell runtime variables (like `APP_PATH`) are preserved:
 
-| Variable | Source Config Key | Example Value |
-|----------|-------------------|---------------|
-| `APP_NAME` | `app.name` | `AmneziaVPN` |
-| `INSTALL_DIR` | `app.install_dir` | `/opt/AmneziaVPN` |
-| `CLIENT_SCRIPT` | `app.client_script` | `client/AmneziaVPN.sh` |
-| `SERVICE_SCRIPT` | `app.service_script` | `service/AmneziaVPN-service.sh` |
-| `DESKTOP_FILE` | `app.desktop_file` | `AmneziaVPN.desktop` |
-| `ICON_FILE` | `app.icon_file` | `AmneziaVPN.png` |
-| `SERVICE_FILE` | `app.service_file` | `AmneziaVPN.service` |
-| `VERSION` | — | `4.8.19.0` |
-| `ARCH` | — | `x86_64` |
+| Variable | Source | Format | Example |
+|----------|--------|--------|---------|
+| `APP_NAME` | `app.name` | plain | `AmneziaVPN` |
+| `APP_USER` | `app.user` | plain | `amneziavpn` |
+| `INSTALL_DIR` | `app.install_dir` | path | `/opt/AmneziaVPN` |
+| `CLIENT_SCRIPT` | `app.client_script` | path | `client/AmneziaVPN.sh` |
+| `SERVICE_SCRIPT` | `app.service_script` | path | `service/AmneziaVPN-service.sh` |
+| `DESKTOP_FILE` | `app.desktop_file` | filename | `AmneziaVPN.desktop` |
+| `ICON_FILE` | `app.icon_file` | filename | `AmneziaVPN.png` |
+| `SERVICE_FILE` | `app.service_file` | filename | `AmneziaVPN.service` |
+| `DEPS_DEB` | `dependencies.deb` | comma+space | `libxcb-cursor0, libxcb-xinerama0` |
+| `DEPS_ARCH` | `dependencies.arch` | space | `xcb-util-cursor libxcb` |
+| `DEPS_RPM` | `dependencies.rpm` | space | `libxcb-cursor libxcb-xinerama` |
+| `DEPS_ARCH_LINES` | computed | multiline | `depend = xcb-util-cursor\ndepend = libxcb` |
+| `DEPS_RPM_LINES` | computed | multiline | `Requires: libxcb-cursor\nRequires: libxcb-xinerama` |
+| `PKGVER` | computed | `version-release` | `4.8.19.0` |
+| `PKGNAME` | `app.user` | plain | `amneziavpn` |
+| `PKGSIZE_KB` | computed | number | `373656` |
+| `PKGSIZE_BYTES` | computed | number | `382654123` |
+| `PACKAGE_VENDOR` | `PACKAGE_VENDOR` | plain | `AmneziaVPN` |
+| `PACKAGE_LICENSE` | `PACKAGE_LICENSE` | plain | `GPL3` |
+| `PACKAGE_DESCRIPTION` | `PACKAGE_DESCRIPTION` | plain | `AmneziaVPN — Client...` |
+| `PACKAGE_URL` | `PACKAGE_URL` | url | `https://github.com/vitkuz573/amnezia-packager` |
+| `PACKAGE_MAINTAINER` | `PACKAGE_MAINTAINER` | plain | `AmneziaVPN <support@...>` |
 
 ## CLI Flag Overrides
 
-| Flag | Config Key Affected |
-|------|---------------------|
-| `--version VERSION` | Overrides `RELEASE_VERSION` |
-| `--output DIR` | `OUTPUT_DIR` |
-| `--deb` / `--rpm` / `--arch` | Appends to `TARGETS` |
+| Flag | Config Key |
+|------|------------|
+| `-v, --version VERSION` | Overrides `RELEASE_VERSION` |
+| `-o, --output DIR` | `OUTPUT_DIR` |
+| `-d, --deb` | Appends `deb` to `TARGETS` |
+| `-r, --rpm` | Appends `rpm` to `TARGETS` |
+| `-a, --arch` | Appends `arch` to `TARGETS` |
 | `--all` | Sets `TARGETS` to all available |
 | `--parallel` | `PARALLEL=true` |
 | `--sign` | `SIGN_ENABLED=true` |
@@ -167,8 +164,9 @@ These variables are available in template files (`templates/`). They are the onl
 | `--profile NAME` | `ACTIVE_PROFILE=NAME` |
 | `--manifest` | Enables manifest generation |
 | `--tar PATH` | `TARBALL_PATH=PATH` |
-| `--dry-run` | `DRY_RUN=true` |
+| `-n, --dry-run` | `DRY_RUN=true` |
+| `-h, --help` | Show help and exit |
 
 ## Fallback Without jq
 
-When `jq` is not installed, the config system falls back to sourcing `config/default.sh` (if it exists) and applying environment variable overrides. Profile loading is skipped. All JSON features (schema validation, profile merging) require `jq`.
+When `jq` is not installed, the config system sources `config/default.sh` and applies environment variable overrides. Profile loading and JSON Schema validation are skipped.

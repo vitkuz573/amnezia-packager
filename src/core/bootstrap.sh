@@ -40,11 +40,17 @@ bootstrap_init() {
 detect_target() {
     case "${PACKAGE_TARGET}" in
         auto)
-            if command -v dpkg-deb &>/dev/null || [[ -f /etc/debian_version ]]; then
+            if [[ -f /etc/arch-release ]]; then
+                echo "arch"
+            elif [[ -f /etc/debian_version ]]; then
                 echo "deb"
-            elif command -v rpmbuild &>/dev/null || [[ -f /etc/redhat-release ]] || [[ -f /etc/fedora-release ]]; then
+            elif [[ -f /etc/redhat-release ]] || [[ -f /etc/fedora-release ]]; then
                 echo "rpm"
-            elif command -v makepkg &>/dev/null && { [[ -f /etc/arch-release ]] || [[ -f /etc/pacman.d/mirrorlist ]]; }; then
+            elif command -v dpkg-deb &>/dev/null; then
+                echo "deb"
+            elif command -v rpmbuild &>/dev/null; then
+                echo "rpm"
+            elif command -v makepkg &>/dev/null; then
                 echo "arch"
             else
                 err "Cannot auto-detect distro. Set PACKAGE_TARGET=deb|rpm|arch"

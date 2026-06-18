@@ -2,6 +2,13 @@ version: '0.1.{build}'
 
 image: Ubuntu2204
 
+# Weekly scheduled rebuild to keep packages current
+schedule:
+  - weeks: 1
+    days_of_week:
+      - Mon
+    hours: 6
+
 branches:
   only:
     - main
@@ -16,26 +23,46 @@ environment:
   OUTPUT_DIR: /tmp/packages
   REPO_DIR: /tmp/repo
   GPG_KEY: AmneziaVPN Repository
+  GPG_KEY_ID: B63E7D50DE313425
   CORRELATION_ID: ci-{build}
+  DEBIAN_FRONTEND: noninteractive
 
 install:
   - sh: sudo apt-get update -qq
-  - sh: sudo apt-get install -y -qq jq curl shellcheck bats dpkg-dev fakeroot
+  - sh: sudo apt-get install -y -qq jq curl shellcheck bats dpkg-dev fakeroot rpm createrepo-c
+  - sh: |
+      if [ -n "$REPO_GPG_PRIVATE_KEY" ]; then
+        echo "$REPO_GPG_PRIVATE_KEY" | gpg --batch --import
+        echo -e "5\ny\n" | gpg --command-fd 0 --expert --batch --edit-key "$GPG_KEY_ID" trust
+        echo "GPG key $GPG_KEY_ID imported and trusted"
+      fi
 
 build_script:
   - sh: shellcheck -x build.sh src/**/*.sh tools/*.sh
   - sh: bats tests/ || true
   - sh: mkdir -p "$OUTPUT_DIR" "$REPO_DIR"
   - sh: ./build.sh -d -o "$OUTPUT_DIR" --manifest
+  - sh: ./build.sh -r -o "$OUTPUT_DIR" --manifest
+  - sh: |
+      if command -v docker &>/dev/null; then
+        docker build -t amnezia-packager .
+        docker run --rm -v "$OUTPUT_DIR":/output amnezia-packager -a -o /output --manifest
+      else
+        echo "Docker not available — skipping Arch package build"
+      fi
 
 after_build:
   - sh: |
-      if [ -n "$(ls $OUTPUT_DIR/*.deb 2>/dev/null)" ]; then
-        tools/repo.sh init "$REPO_DIR"
-        tools/repo.sh add "$OUTPUT_DIR"/*.deb "$REPO_DIR"
-        tools/repo.sh release "$REPO_DIR"
-        tools/repo.sh deploy "$REPO_DIR" "repo: update $(date -u +%Y-%m-%d)"
+      tools/repo.sh init "$REPO_DIR"
+      for f in "$OUTPUT_DIR"/*.deb; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+      for f in "$OUTPUT_DIR"/*.rpm; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+      for f in "$OUTPUT_DIR"/*.pkg.tar.zst; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+      export GPG_SIGN_ARGS=""
+      if [ -n "$REPO_GPG_PRIVATE_KEY" ]; then
+        GPG_SIGN_ARGS="--gpg-key $GPG_KEY_ID"
       fi
+      tools/repo.sh release "$REPO_DIR" $GPG_SIGN_ARGS
+      tools/repo.sh deploy "$REPO_DIR" "repo: update $(date -u +%Y-%m-%d)"
 
 artifacts:
   - path: /tmp/packages/*.deb
@@ -56,8 +83,33 @@ for:
         - /v\d+\.\d+\.\d+.*/
     environment:
       GPG_SIGN: --sign
+    build_script:
+      - sh: shellcheck -x build.sh src/**/*.sh tools/*.sh
+      - sh: bats tests/ || true
+      - sh: mkdir -p "$OUTPUT_DIR" "$REPO_DIR"
+      - sh: |
+          SIGN_FLAGS=""
+          if [ -n "$REPO_GPG_PRIVATE_KEY" ]; then
+            SIGN_FLAGS="--sign --gpg-key $GPG_KEY_ID"
+          fi
+          ./build.sh --all -o "$OUTPUT_DIR" --manifest $SIGN_FLAGS
+    after_build:
+      - sh: |
+          tools/repo.sh init "$REPO_DIR"
+          for f in "$OUTPUT_DIR"/*.deb; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+          for f in "$OUTPUT_DIR"/*.rpm; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+          for f in "$OUTPUT_DIR"/*.pkg.tar.zst; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+          export GPG_SIGN_ARGS=""
+          if [ -n "$REPO_GPG_PRIVATE_KEY" ]; then
+            GPG_SIGN_ARGS="--gpg-key $GPG_KEY_ID"
+          fi
+          tools/repo.sh release "$REPO_DIR" $GPG_SIGN_ARGS
+          tools/repo.sh upload packages
+          tools/repo.sh deploy "$REPO_DIR" "repo: release $(date -u +%Y-%m-%d)"
     artifacts:
       - path: /tmp/packages/*.deb
+      - path: /tmp/packages/*.pkg.tar.zst
+      - path: /tmp/packages/*.rpm
       - path: /tmp/packages/*.sig
       - path: /tmp/packages/build-manifest.json
     deploy:

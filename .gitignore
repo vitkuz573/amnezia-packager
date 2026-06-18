@@ -5,6 +5,7 @@
 *.log
 *.bin
 *.sig
+repo-private-key.asc
 tmp/
 /out/
 /config/local.json

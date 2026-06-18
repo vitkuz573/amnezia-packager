@@ -15,6 +15,7 @@ setup() {
 }
 
 @test "bootstrap: detect_target returns arch on Arch Linux" {
+    source "${PROJECT_ROOT}/src/core/bootstrap.sh"
     [[ -f /etc/arch-release ]] || skip "not on Arch"
     PACKAGE_TARGET=auto
     run detect_target
@@ -22,21 +23,21 @@ setup() {
 }
 
 @test "bootstrap: detect_target returns explicit target" {
+    source "${PROJECT_ROOT}/src/core/bootstrap.sh"
     PACKAGE_TARGET=deb
     run detect_target
     [ "$output" = "deb" ]
 }
 
 @test "config: load exports APP_NAME" {
-    PROJECT_ROOT="$BATS_TEST_DIRNAME/.."
     source "${PROJECT_ROOT}/src/core/config.sh"
-    run config::load
+    config::load
     [ -n "$APP_NAME" ]
 }
 
 @test "config: JSON schema validates" {
-    run config::validate "${PROJECT_ROOT}/config/default.json"
-    [ "$status" -eq 0 ]
+    source "${PROJECT_ROOT}/src/core/config.sh"
+    config::validate "${PROJECT_ROOT}/config/default.json"
 }
 
 @test "pipeline: assert_cmds passes for existing commands" {

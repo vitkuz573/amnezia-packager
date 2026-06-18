@@ -18,6 +18,7 @@ template::render() {
     export DESKTOP_FILE ICON_FILE SERVICE_FILE
     export CLIENT_SCRIPT SERVICE_SCRIPT
     export DEPS_DEB DEPS_ARCH DEPS_RPM
+    export SOURCE_SHA256="${SOURCE_SHA256:-}"
     export PACKAGE_VENDOR="${PACKAGE_VENDOR:-AmneziaVPN}"
     export PACKAGE_LICENSE="${PACKAGE_LICENSE:-GPL3}"
     export PACKAGE_DESCRIPTION="${PACKAGE_DESCRIPTION:-AmneziaVPN — Client of your self-hosted VPN}"
@@ -34,7 +35,7 @@ template::render() {
 
     # Only substitute config vars, not shell/runtime variables like APP_PATH
     local vars
-    vars='$APP_NAME $APP_USER $INSTALL_DIR $REPO_OWNER $REPO_NAME $REPO'
+    vars='$SOURCE_SHA256 $APP_NAME $APP_USER $INSTALL_DIR $REPO_OWNER $REPO_NAME $REPO'
     vars+=' $RELEASE_VERSION $PACKAGE_ARCH'
     vars+=' $DESKTOP_FILE $ICON_FILE $SERVICE_FILE $CLIENT_SCRIPT $SERVICE_SCRIPT'
     vars+=' $DEPS_DEB $DEPS_ARCH $DEPS_RPM'
