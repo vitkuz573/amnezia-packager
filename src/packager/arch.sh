@@ -22,38 +22,44 @@ build_package() {
 post_install() {
     APP_NAME="AmneziaVPN"
     APP_PATH="/opt/${APP_NAME}"
-    mkdir -p /var/log/${APP_NAME}
-    killall -9 "${APP_NAME}" 2>/dev/null || true
+
+    ln -sf "${APP_PATH}/client/${APP_NAME}.sh" "/usr/local/bin/${APP_NAME}" || :
+    mkdir -p /var/log/${APP_NAME} || :
+    killall -9 "${APP_NAME}" 2>/dev/null || :
+
     if command -v systemctl >/dev/null 2>&1; then
-        cp -f "${APP_PATH}/${APP_NAME}.service" /etc/systemd/system/
-        chmod 644 /etc/systemd/system/${APP_NAME}.service
-        systemctl daemon-reload
-        systemctl enable "${APP_NAME}" 2>/dev/null || true
-        systemctl start "${APP_NAME}" 2>/dev/null || true
+        cp -f "${APP_PATH}/${APP_NAME}.service" /etc/systemd/system/ || :
+        chmod 644 /etc/systemd/system/${APP_NAME}.service || :
+        systemctl daemon-reload || :
+        systemctl enable "${APP_NAME}" 2>/dev/null || :
+        systemctl start "${APP_NAME}" 2>/dev/null || :
     fi
-    ln -sf "${APP_PATH}/client/${APP_NAME}.sh" "/usr/local/bin/${APP_NAME}"
-    cp -f "${APP_PATH}/${APP_NAME}.desktop" /usr/share/applications/
-    cp -f "${APP_PATH}/${APP_NAME}.png" /usr/share/pixmaps/
-    chmod 644 /usr/share/applications/${APP_NAME}.desktop
-    chmod -R a-w "${APP_PATH}/" 2>/dev/null || true
-    chmod 755 "${APP_PATH}/client/bin/${APP_NAME}"
-    chmod 755 "${APP_PATH}/service/bin/AmneziaVPN-service"
-    chmod 555 "${APP_PATH}/client/${APP_NAME}.sh"
-    chmod 555 "${APP_PATH}/service/${APP_NAME}-service.sh"
+
+    cp -f "${APP_PATH}/${APP_NAME}.desktop" /usr/share/applications/ || :
+    cp -f "${APP_PATH}/${APP_NAME}.png" /usr/share/pixmaps/ || :
+    chmod 644 /usr/share/applications/${APP_NAME}.desktop || :
+
+    chmod 755 "${APP_PATH}/client/bin/${APP_NAME}"        || :
+    chmod 755 "${APP_PATH}/service/bin/AmneziaVPN-service" || :
+    chmod 555 "${APP_PATH}/client/${APP_NAME}.sh"         || :
+    chmod 555 "${APP_PATH}/service/${APP_NAME}-service.sh" || :
+
+    # Must be last — prevents accidental writes to the installdir
+    chmod -R a-w "${APP_PATH}/" 2>/dev/null || :
 }
 
 pre_remove() {
     APP_NAME="AmneziaVPN"
     if command -v systemctl >/dev/null 2>&1; then
-        systemctl stop "${APP_NAME}" 2>/dev/null || true
-        systemctl disable "${APP_NAME}" 2>/dev/null || true
-        rm -f /etc/systemd/system/${APP_NAME}.service
-        systemctl daemon-reload
+        systemctl stop "${APP_NAME}" 2>/dev/null || :
+        systemctl disable "${APP_NAME}" 2>/dev/null || :
+        rm -f /etc/systemd/system/${APP_NAME}.service || :
+        systemctl daemon-reload || :
     fi
-    killall -9 "${APP_NAME}" 2>/dev/null || true
-    rm -f "/usr/local/bin/${APP_NAME}"
-    rm -f "/usr/share/applications/${APP_NAME}.desktop"
-    rm -f "/usr/share/pixmaps/${APP_NAME}.png"
+    killall -9 "${APP_NAME}" 2>/dev/null || :
+    rm -f "/usr/local/bin/${APP_NAME}" || :
+    rm -f "/usr/share/applications/${APP_NAME}.desktop" || :
+    rm -f "/usr/share/pixmaps/${APP_NAME}.png" || :
 }
 
 post_remove() { :; }
