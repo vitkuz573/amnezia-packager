@@ -1,0 +1,15 @@
+Package: amneziavpn
+Version: 4.8.19.0
+Architecture: amd64
+Maintainer: AmneziaVPN <support@amnezia.com>
+Installed-Size: 373656
+Depends: libxcb-cursor0, libxcb-xinerama0, libxcb-icccm4, libxcb-keysyms1, libopengl0, libxkbcommon-x11-0
+Filename: pool/amneziavpn_4.8.19.0_amd64.deb
+Size: 92220672
+MD5sum: 288b92db5b67ad2937c17fdaa0d0036e
+SHA1: a3cc2e05724adb0f30534eb1205bafcb05cdbb49
+SHA256: cc768a928222bfba08f13d4c5b33b7222266b3513ceec8ab9189fea60835e1aa
+Section: net
+Priority: optional
+Description: AmneziaVPN — Client of your self-hosted VPN
+

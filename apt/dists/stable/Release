@@ -1,0 +1,17 @@
+Origin: AmneziaVPN Repository
+Label: AmneziaVPN
+Suite: stable
+Codename: stable
+Date: Thu, 18 Jun 2026 17:44:31 UTC
+Architectures: amd64
+Components: main
+Description: AmneziaVPN native packages
+SHA256:
+ d7066c1c3083b927541db74d13fe6c95ba0d802b49a8b403629f430785264042 545 main/binary-amd64/Packages
+ 45781c4c70101a311f930c13f642237e6a43475c683205231d2a86f9e3fdb82d 406 main/binary-amd64/Packages.gz
+SHA1:
+ 0202d8f0ee5b82b4f557fb96d9b4329076863eff 545 main/binary-amd64/Packages
+ 1df98025f7780051da92893de7a7d52c6d7abf0a 406 main/binary-amd64/Packages.gz
+MD5Sum:
+ 5f70c6f5c8eec3b29faebdff3e06c63d 545 main/binary-amd64/Packages
+ c238ae47e343e0853d537325bd28d4b3 406 main/binary-amd64/Packages.gz
