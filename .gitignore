@@ -1,0 +1,8 @@
+*.tar
+*.pkg.tar.zst
+*.deb
+*.rpm
+*.log
+*.bin
+tmp/
+/out/
