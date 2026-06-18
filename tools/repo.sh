@@ -14,6 +14,7 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 REPO_BRANCH="gh-pages"
 REPO_URL="${REPO_URL:-https://github.com/vitkuz573/amnezia-packager.git}"
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
@@ -25,7 +26,37 @@ cmd_init() {
     mkdir -p "${dir}/arch"
     mkdir -p "${dir}/yum/x86_64"
     mkdir -p "${dir}/yum/repodata"
+    cmd_gen_index "$dir"
     echo "Repo initialized at ${dir}/"
+}
+
+cmd_gen_index() {
+    local dir="$1"
+    local tmpl="${SCRIPT_DIR}/../templates/gh-pages/index.html"
+    [[ -f "$tmpl" ]] || { echo "Index template not found: $tmpl" >&2; return 0; }
+
+    # Derive owner/name from REPO or REPO_URL
+    local repo_owner="${REPO_OWNER:-}"
+    local repo_name="${REPO_NAME:-}"
+    if [[ -z "$repo_owner" || -z "$repo_name" ]]; then
+        local repo_path="${REPO_URL#https://github.com/}"
+        repo_path="${repo_path%.git}"
+        repo_owner="${repo_path%%/*}"
+        repo_name="${repo_path#*/}"
+    fi
+
+    # Capture variables for envsubst
+    export APP_NAME="${APP_NAME:-AmneziaVPN}"
+    export APP_USER="${APP_USER:-amneziavpn}"
+    export RELEASE_VERSION="${RELEASE_VERSION:-latest}"
+    export GPG_KEY_ID="${GPG_KEY_ID:-B63E7D50DE313425}"
+    export REPO="${REPO:-${repo_owner}/${repo_name}}"
+    export REPO_OWNER="$repo_owner"
+    export REPO_NAME="$repo_name"
+    export REPO_URL="${REPO_URL:-https://github.com/${REPO}}"
+
+    envsubst < "$tmpl" > "${dir}/index.html"
+    echo "  index.html generated"
 }
 
 cmd_add_deb() {
@@ -80,6 +111,7 @@ cmd_add_arch() {
 cmd_release() {
     local dir="$1"
     local gpg_key=""
+    cmd_gen_index "$dir"
 
     shift
     while [[ $# -gt 0 ]]; do
