@@ -1,0 +1,63 @@
+{
+  "$schema": "config/schema.json",
+  "app": {
+    "name": "AmneziaVPN",
+    "user": "amneziavpn",
+    "install_dir": "/opt/AmneziaVPN"
+  },
+  "repository": {
+    "owner": "amnezia-vpn",
+    "name": "amnezia-client"
+  },
+  "release": {
+    "version": "",
+    "tar_url": "",
+    "local_tar": ""
+  },
+  "output": {
+    "dir": "",
+    "manifest": true,
+    "sign": false,
+    "gpg_key": ""
+  },
+  "platform": {
+    "target": "auto",
+    "arch": "x86_64"
+  },
+  "dependencies": {
+    "deb": "libxcb-cursor0, libxcb-xinerama0, libxcb-icccm4, libxcb-keysyms1, libopengl0, libxkbcommon-x11-0",
+    "arch": "xcb-util-cursor libxcb xcb-util-wm xcb-util-keysyms libglvnd libxkbcommon-x11",
+    "rpm": "libxcb-cursor libxcb-xinerama libxcb-icccm4 libxcb-keysyms1 libopengl0 libxkbcommon-x11"
+  },
+  "package": {
+    "vendor": "AmneziaVPN",
+    "license": "GPL3",
+    "description": "AmneziaVPN — Client of your self-hosted VPN",
+    "url": "https://github.com/amnezia-vpn/amnezia-client",
+    "maintainer": "AmneziaVPN <support@amnezia.com>"
+  },
+  "files": {
+    "desktop": "AmneziaVPN.desktop",
+    "icon": "AmneziaVPN.png",
+    "service": "AmneziaVPN.service",
+    "client_script": "AmneziaVPN.sh",
+    "service_script": "AmneziaVPN-service.sh"
+  },
+  "compression": {
+    "zstd_level": 3
+  },
+  "cache": {
+    "enabled": true,
+    "dir": "~/.cache/amnezia-packager"
+  },
+  "logging": {
+    "level": "info",
+    "format": "text",
+    "file": "",
+    "max_size_mb": 10,
+    "max_files": 3
+  },
+  "profiles": {
+    "current": "default"
+  }
+}

@@ -4,5 +4,11 @@
 *.rpm
 *.log
 *.bin
+*.sig
 tmp/
 /out/
+/config/local.json
+/config/profiles/*.json
+.DS_Store
+*.swp
+*.swo

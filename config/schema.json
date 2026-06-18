@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AmneziaVPN Packager Configuration",
+  "type": "object",
+  "properties": {
+    "app": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "user": { "type": "string", "minLength": 1 },
+        "install_dir": { "type": "string", "pattern": "^/" }
+      },
+      "required": ["name", "user", "install_dir"]
+    },
+    "repository": {
+      "type": "object",
+      "properties": {
+        "owner": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 }
+      },
+      "required": ["owner", "name"]
+    },
+    "release": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "string" },
+        "tar_url": { "type": "string" },
+        "local_tar": { "type": "string" }
+      }
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "dir": { "type": "string" },
+        "manifest": { "type": "boolean" },
+        "sign": { "type": "boolean" },
+        "gpg_key": { "type": "string" }
+      }
+    },
+    "platform": {
+      "type": "object",
+      "properties": {
+        "target": { "enum": ["auto", "deb", "rpm", "arch"] },
+        "arch": { "type": "string", "pattern": "^(x86_64|aarch64|armv7h)$" }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "properties": {
+        "deb": { "type": "string" },
+        "arch": { "type": "string" },
+        "rpm": { "type": "string" }
+      }
+    },
+    "package": {
+      "type": "object",
+      "properties": {
+        "vendor": { "type": "string" },
+        "license": { "type": "string" },
+        "description": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "maintainer": { "type": "string" }
+      }
+    },
+    "files": {
+      "type": "object",
+      "properties": {
+        "desktop": { "type": "string" },
+        "icon": { "type": "string" },
+        "service": { "type": "string" },
+        "client_script": { "type": "string" },
+        "service_script": { "type": "string" }
+      }
+    },
+    "compression": {
+      "type": "object",
+      "properties": {
+        "zstd_level": { "type": "integer", "minimum": 1, "maximum": 19 }
+      }
+    },
+    "cache": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "dir": { "type": "string" }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "properties": {
+        "level": { "enum": ["debug", "info", "warn", "error"] },
+        "format": { "enum": ["text", "json"] },
+        "file": { "type": "string" },
+        "max_size_mb": { "type": "integer", "minimum": 1 },
+        "max_files": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "profiles": {
+      "type": "object",
+      "properties": {
+        "current": { "type": "string" }
+      }
+    }
+  },
+  "required": ["app", "repository", "dependencies", "package"]
+}
