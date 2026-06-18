@@ -11,7 +11,7 @@ template::render() {
     local template_file="$1" output_file="$2"
     [[ -f "$template_file" ]] || { err "Template not found: $template_file"; return 1; }
 
-    # Build env vars for substitution
+    # Build env vars for substitution — only these get replaced by envsubst
     export APP_NAME APP_USER INSTALL_DIR
     export REPO_OWNER REPO_NAME REPO
     export RELEASE_VERSION PACKAGE_ARCH
@@ -27,7 +27,16 @@ template::render() {
     export PKGNAME="${APP_USER}"
     export PKGSIZE_KB PKGSIZE_BYTES
 
-    envsubst < "$template_file" > "$output_file"
+    # Only substitute config vars, not shell/runtime variables like APP_PATH
+    local vars
+    vars='$APP_NAME $APP_USER $INSTALL_DIR $REPO_OWNER $REPO_NAME $REPO'
+    vars+=' $RELEASE_VERSION $PACKAGE_ARCH'
+    vars+=' $DESKTOP_FILE $ICON_FILE $SERVICE_FILE $CLIENT_SCRIPT $SERVICE_SCRIPT'
+    vars+=' $DEPS_DEB $DEPS_ARCH $DEPS_RPM'
+    vars+=' $PACKAGE_VENDOR $PACKAGE_LICENSE $PACKAGE_DESCRIPTION $PACKAGE_URL $PACKAGE_MAINTAINER'
+    vars+=' $PKGVER $PKGNAME $PKGSIZE_KB $PKGSIZE_BYTES'
+
+    envsubst "$vars" < "$template_file" > "$output_file"
 }
 
 template::compute_size() {
