@@ -2,12 +2,9 @@ version: '0.1.{build}'
 
 image: Ubuntu2204
 
-# Weekly scheduled rebuild to keep packages current
+# Poll upstream every 6 hours for new releases
 schedule:
-  - weeks: 1
-    days_of_week:
-      - Mon
-    hours: 6
+  - minutes: 360
 
 branches:
   only:
@@ -40,29 +37,56 @@ install:
 build_script:
   - sh: shellcheck -x build.sh src/**/*.sh tools/*.sh
   - sh: bats tests/ || true
-  - sh: mkdir -p "$OUTPUT_DIR" "$REPO_DIR"
-  - sh: ./build.sh -d -o "$OUTPUT_DIR" --manifest
-  - sh: ./build.sh -r -o "$OUTPUT_DIR" --manifest
+  # Check upstream on scheduled builds; skip package build if up-to-date
   - sh: |
-      if command -v docker &>/dev/null; then
+      if [ "$APPVEYOR_SCHEDULED_BUILD" == "True" ]; then
+        NEW_VER=$(tools/check-upstream.sh || true)
+        if [ -z "$NEW_VER" ]; then
+          echo "Upstream already up-to-date — skipping package build"
+          touch /tmp/skip-build
+        else
+          echo "$NEW_VER" > /tmp/new-version
+          echo "New upstream version: $NEW_VER"
+        fi
+      fi
+  - sh: |
+      if [ ! -f /tmp/skip-build ]; then
+        mkdir -p "$OUTPUT_DIR" "$REPO_DIR"
+        VER_FLAG=""
+        [ -f /tmp/new-version ] && VER_FLAG="-v $(cat /tmp/new-version)"
+        ./build.sh -d -o "$OUTPUT_DIR" --manifest $VER_FLAG
+      fi
+  - sh: |
+      if [ ! -f /tmp/skip-build ]; then
+        VER_FLAG=""
+        [ -f /tmp/new-version ] && VER_FLAG="-v $(cat /tmp/new-version)"
+        ./build.sh -r -o "$OUTPUT_DIR" --manifest $VER_FLAG
+      fi
+  - sh: |
+      if [ ! -f /tmp/skip-build ] && command -v docker &>/dev/null; then
+        VER_FLAG=""
+        [ -f /tmp/new-version ] && VER_FLAG="-v $(cat /tmp/new-version)"
         docker build -t amnezia-packager .
-        docker run --rm -v "$OUTPUT_DIR":/output amnezia-packager -a -o /output --manifest
-      else
-        echo "Docker not available — skipping Arch package build"
+        docker run --rm -v "$OUTPUT_DIR":/output amnezia-packager -a -o /output --manifest $VER_FLAG
       fi
 
 after_build:
   - sh: |
-      tools/repo.sh init "$REPO_DIR"
-      for f in "$OUTPUT_DIR"/*.deb; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
-      for f in "$OUTPUT_DIR"/*.rpm; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
-      for f in "$OUTPUT_DIR"/*.pkg.tar.zst; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
-      export GPG_SIGN_ARGS=""
-      if [ -n "$REPO_GPG_PRIVATE_KEY" ]; then
-        GPG_SIGN_ARGS="--gpg-key $GPG_KEY_ID"
+      if [ ! -f /tmp/skip-build ]; then
+        tools/repo.sh init "$REPO_DIR"
+        for f in "$OUTPUT_DIR"/*.deb; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+        for f in "$OUTPUT_DIR"/*.rpm; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+        for f in "$OUTPUT_DIR"/*.pkg.tar.zst; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+        export GPG_SIGN_ARGS=""
+        if [ -n "$REPO_GPG_PRIVATE_KEY" ]; then
+          GPG_SIGN_ARGS="--gpg-key $GPG_KEY_ID"
+        fi
+        tools/repo.sh release "$REPO_DIR" $GPG_SIGN_ARGS
+        if [ -f /tmp/new-version ]; then
+          echo "$(cat /tmp/new-version)" > "$REPO_DIR/.last-version"
+        fi
+        tools/repo.sh deploy "$REPO_DIR" "repo: update $(date -u +%Y-%m-%d)"
       fi
-      tools/repo.sh release "$REPO_DIR" $GPG_SIGN_ARGS
-      tools/repo.sh deploy "$REPO_DIR" "repo: update $(date -u +%Y-%m-%d)"
 
 artifacts:
   - path: /tmp/packages/*.deb
@@ -105,6 +129,8 @@ for:
           fi
           tools/repo.sh release "$REPO_DIR" $GPG_SIGN_ARGS
           tools/repo.sh upload packages
+          # Update last-version on tag builds too
+          echo "${APPVEYOR_REPO_TAG_NAME#v}" > "$REPO_DIR/.last-version"
           tools/repo.sh deploy "$REPO_DIR" "repo: release $(date -u +%Y-%m-%d)"
     artifacts:
       - path: /tmp/packages/*.deb
