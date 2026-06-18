@@ -2,7 +2,7 @@ Origin: AmneziaVPN Repository
 Label: AmneziaVPN
 Suite: stable
 Codename: stable
-Date: Thu, 18 Jun 2026 17:44:31 UTC
+Date: Thu, 18 Jun 2026 18:17:29 UTC
 Architectures: amd64
 Components: main
 Description: AmneziaVPN native packages

@@ -5,7 +5,7 @@ Origin: AmneziaVPN Repository
 Label: AmneziaVPN
 Suite: stable
 Codename: stable
-Date: Thu, 18 Jun 2026 17:44:31 UTC
+Date: Thu, 18 Jun 2026 18:17:29 UTC
 Architectures: amd64
 Components: main
 Description: AmneziaVPN native packages
@@ -21,8 +21,8 @@ MD5Sum:
 
 -----BEGIN PGP SIGNATURE-----
 
-iHUEARYKAB0WIQTLDnXQmgaeHUE51QG2Pn1Q3jE0JQUCajQugAAKCRC2Pn1Q3jE0
-JSEMAP9A3KR2Rc9F5DAO1QPTjrcMb6n4f6J4hiEswGnZdrTMywD8DsgaPGQKvyiY
-FcFQ779SjQHNjEJRWWw3UQBsfbPhPwk=
-=b71a
+iHUEARYKAB0WIQTLDnXQmgaeHUE51QG2Pn1Q3jE0JQUCajQ2OQAKCRC2Pn1Q3jE0
+JanYAQCvqTFCta8giincIEFl5LwvcY3JmReK1qnYYShrAwCSJAEAxkxj9tb7ERCV
+vdyRbVf424F16iDp224jdVkeUbKUZAE=
+=jnA3
 -----END PGP SIGNATURE-----
