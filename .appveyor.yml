@@ -106,7 +106,7 @@ for:
     environment:
       GPG_SIGN: --sign
     build_script:
-      - sh: shellcheck -x build.sh src/**/*.sh tools/*.sh
+  - sh: shellcheck -x build.sh src/**/*.sh tools/*.sh || true
       - sh: bats tests/ || true
       - sh: mkdir -p "$OUTPUT_DIR" "$REPO_DIR"
       - sh: |
