@@ -2,10 +2,8 @@ version: '0.1.{build}'
 
 image: Ubuntu2204
 
-# Poll upstream every 6 hours for new releases
-schedule:
-  - minutes: 360
-
+# Schedule configured in AppVeyor UI: Settings → General → Build schedule
+# 
 branches:
   only:
     - main
