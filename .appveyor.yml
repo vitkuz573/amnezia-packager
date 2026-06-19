@@ -35,12 +35,12 @@ install:
 build_script:
   - sh: shellcheck -x build.sh src/**/*.sh tools/*.sh
   - sh: bats tests/ || true
-  # Check upstream on scheduled builds; skip package build if up-to-date
+  # Upstream check only when triggered by cron (TRIGGER=check in API call)
   - sh: |
-      if [ "$APPVEYOR_SCHEDULED_BUILD" == "True" ]; then
+      if [ "${TRIGGER:-}" == "check" ]; then
         NEW_VER=$(tools/check-upstream.sh || true)
         if [ -z "$NEW_VER" ]; then
-          echo "Upstream already up-to-date — skipping package build"
+          echo "No new upstream version — skipping package build"
           touch /tmp/skip-build
         else
           echo "$NEW_VER" > /tmp/new-version

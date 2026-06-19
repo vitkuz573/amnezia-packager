@@ -41,6 +41,6 @@ API_URL="https://ci.appveyor.com/api/projects/${APPVEYOR_ACCOUNT}/${APPVEYOR_PRO
 RESPONSE="$(curl -sS -X POST "$API_URL" \
     -H "Authorization: Bearer ${APPVEYOR_TOKEN}" \
     -H "Content-Type: application/json" \
-    -d "{\"branch\": \"main\"}" 2>&1)"
+    -d '{"branch": "main", "environmentVariables": {"TRIGGER": "check"}}' 2>&1)"
 
 echo "trigger-build: build triggered: $(echo "$RESPONSE" | jq -r '.version // .message // "unknown"')"
