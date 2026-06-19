@@ -37,10 +37,10 @@ if [[ -z "$APPVEYOR_TOKEN" ]]; then
 fi
 
 # Trigger build via AppVeyor API
-API_URL="https://ci.appveyor.com/api/projects/${APPVEYOR_ACCOUNT}/${APPVEYOR_PROJECT}/builds"
+API_URL="https://ci.appveyor.com/api/builds"
 RESPONSE="$(curl -sS -X POST "$API_URL" \
     -H "Authorization: Bearer ${APPVEYOR_TOKEN}" \
     -H "Content-Type: application/json" \
-    -d '{"branch": "main", "environmentVariables": {"TRIGGER": "check"}}' 2>&1)"
+    -d "{\"accountName\": \"${APPVEYOR_ACCOUNT}\", \"projectSlug\": \"${APPVEYOR_PROJECT}\", \"branch\": \"main\", \"environmentVariables\": {\"TRIGGER\": \"check\"}}" 2>&1)"
 
 echo "trigger-build: build triggered: $(echo "$RESPONSE" | jq -r '.version // .message // "unknown"')"
