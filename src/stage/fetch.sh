@@ -35,7 +35,9 @@ run_fetch() {
 
     if [[ -z "$TAR_URL" ]]; then
         local data
-        data="$(curl -sf "$api_url")" || {
+        local curl_cmd=("curl" "-sS")
+        [[ -n "${GITHUB_TOKEN:-}" ]] && curl_cmd+=(-H "Authorization: token ${GITHUB_TOKEN}")
+        data="$("${curl_cmd[@]}" "$api_url")" || {
             err "GitHub API request failed"
             err "URL: ${api_url}"
             exit 1

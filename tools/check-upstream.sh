@@ -23,8 +23,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Use GITHUB_TOKEN if set (in CI) to avoid rate limiting
+auth=()
+[[ -n "${GITHUB_TOKEN:-}" ]] && auth=(-H "Authorization: token ${GITHUB_TOKEN}")
+
 # Fetch latest upstream release tag
-LATEST_TAG="$(curl -sS "https://api.github.com/repos/${UPSTREAM_OWNER}/${UPSTREAM_REPO}/releases/latest" | jq -r '.tag_name // empty')"
+LATEST_TAG="$(curl -sS "${auth[@]}" "https://api.github.com/repos/${UPSTREAM_OWNER}/${UPSTREAM_REPO}/releases/latest" | jq -r '.tag_name // empty')"
 
 if [[ -z "$LATEST_TAG" ]]; then
     echo "check-upstream: failed to fetch latest upstream release" >&2
