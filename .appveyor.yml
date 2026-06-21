@@ -6,6 +6,7 @@ environment:
   GITHUB_TOKEN:
     secure: o4Nsjt/mOeQpqBPpCnmSDb5GiWBRyLZSdR/bqYw5cBUbVQt/bjME8IkuRk1pWHc0
   OUTPUT_DIR: output
+  CI_ISSUE: 1
 
 install:
   - sudo apt-get update -qq
@@ -13,21 +14,28 @@ install:
 
 build_script:
   - mkdir -p output
-  - ./build.sh -d -o output --manifest > output/build.log 2>&1; echo "--- EXIT=$? ---" >> output/build.log
-  - |
-    exit_code=$(tail -1 output/build.log | grep -oP 'EXIT=\K\d+')
-    if [ "$exit_code" = "0" ]; then
-      echo "build.sh(1,1): info AV1: BUILD SUCCEEDED (exit=0)"
-    else
-      echo "build.sh(1,1): error AV1: BUILD FAILED (exit=${exit_code:-?})"
-      echo "build.sh(1,1): error AV1: Last 5 lines of build.log:"
-      tail -5 output/build.log | while IFS= read -r line; do
-        echo "build.sh(1,1): error AV1: $line"
-      done
-    fi
+  - ./build.sh -d -o output --manifest > output/build.log 2>&1; echo "=== EXIT CODE: $? ===" >> output/build.log
 
 after_build:
   - ls -la output/
+  - |
+    if [ -n "$GITHUB_TOKEN" ]; then
+      python3 -c "
+import json, sys, os
+with open('output/build.log') as f:
+    text = f.read()
+if len(text) > 60000:
+    text = text[:25000] + '\n\n... [TRUNCATED] ...\n\n' + text[-25000:]
+body = json.dumps({'body': text})
+with open('/tmp/comment-body.json', 'w') as f:
+    f.write(body)
+" 2>/dev/null
+      curl -sS -X POST "https://api.github.com/repos/vitkuz573/amnezia-packager/issues/$CI_ISSUE/comments" \
+        -H "Authorization: token $GITHUB_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d @/tmp/comment-body.json > output/comment-result.json 2>/dev/null
+      python3 -c "import json; d=json.load(open('output/comment-result.json')); print('COMMENT:', d.get('html_url','NO_URL'))" 2>/dev/null
+    fi
 
 artifacts:
   - path: output/build.log
