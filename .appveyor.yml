@@ -2,11 +2,35 @@ version: '0.1.{build}'
 
 image: Ubuntu2204
 
+environment:
+  GITHUB_TOKEN:
+    secure: o4Nsjt/mOeQpqBPpCnmSDb5GiWBRyLZSdR/bqYw5cBUbVQt/bjME8IkuRk1pWHc0
+  OUTPUT_DIR: output
+
 install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -y -qq jq curl dpkg-dev fakeroot
+
+build_script:
   - mkdir -p output
-  - echo "marker" > output/marker.txt
+  - ./build.sh -d -o output --manifest > output/build.log 2>&1; echo "--- EXIT=$? ---" >> output/build.log
+
+after_build:
+  - |
+    LOG_FILE="output/build.log"
+    if [ -f "$LOG_FILE" ] && [ -n "$GITHUB_TOKEN" ]; then
+      LOG_CONTENT=$(cat "$LOG_FILE" | python3 -c "import json,sys; print(json.dumps({'files':{'build.log':{'content':sys.stdin.read()}}}))" 2>/dev/null)
+      if [ -n "$LOG_CONTENT" ]; then
+        GIST_URL=$(curl -sS -X POST "https://api.github.com/gists" \
+          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "$LOG_CONTENT" 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('html_url','NO_URL'))" 2>/dev/null)
+        echo "GIST: $GIST_URL" >> "$LOG_FILE"
+        echo "GIST: $GIST_URL"
+      fi
+    fi
   - ls -la output/
 
 artifacts:
-  - path: output/marker.txt
-    name: marker
+  - path: output/build.log
+    name: log

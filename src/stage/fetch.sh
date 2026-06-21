@@ -35,13 +35,22 @@ run_fetch() {
 
     if [[ -z "$TAR_URL" ]]; then
         local data
-        local curl_cmd=("curl" "-sS" "--connect-timeout" "10" "--max-time" "30")
-        [[ -n "${GITHUB_TOKEN:-}" ]] && curl_cmd+=(-H "Authorization: token ${GITHUB_TOKEN}")
-        data="$("${curl_cmd[@]}" "$api_url")" || {
-            err "GitHub API request failed"
+        local attempts=0
+        while [[ $attempts -lt 3 ]]; do
+            local curl_cmd=("curl" "-sS" "--connect-timeout" "10" "--max-time" "30")
+            [[ -n "${GITHUB_TOKEN:-}" ]] && curl_cmd+=(-H "Authorization: token ${GITHUB_TOKEN}")
+            data="$("${curl_cmd[@]}" "$api_url")" && break
+            attempts=$((attempts + 1))
+            warn "GitHub API request failed (attempt ${attempts}/3): ${api_url}"
+            [[ $attempts -lt 3 ]] && sleep $((attempts * 3))
+        done
+
+        if [[ -z "$data" ]]; then
+            err "GitHub API request failed after ${attempts} attempts"
+            err "Check network connectivity or GITHUB_TOKEN permissions"
             err "URL: ${api_url}"
             exit 1
-        }
+        fi
 
         [[ -n "$cache_file" ]] && echo "$data" > "$cache_file"
 
