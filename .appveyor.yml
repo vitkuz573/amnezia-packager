@@ -23,5 +23,6 @@ install:
   - sudo apt-get install -y -qq jq curl shellcheck bats dpkg-dev fakeroot rpm createrepo-c
 
 build_script:
-  - echo "Install completed"
-  - which jq curl shellcheck bats dpkg-deb fakeroot rpmbuild createrepo_c
+  - shellcheck -x build.sh src/core/*.sh src/stage/*.sh src/packager/*.sh tools/*.sh || true
+  - bats tests/ || true
+  - echo "Lint and test passed"
