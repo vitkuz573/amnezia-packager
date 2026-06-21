@@ -26,9 +26,79 @@ build_script:
   - shellcheck -x build.sh src/core/*.sh src/stage/*.sh src/packager/*.sh tools/*.sh || true
   - bats tests/ || true
   - mkdir -p "$OUTPUT_DIR" "$REPO_DIR"
-  - ./build.sh -n -d -o "$OUTPUT_DIR" 2>&1 || echo "BUILD_FAILED=$?"
-  - echo "=== BUILD DIR ===" && ls -la "$OUTPUT_DIR" || true
-  - echo "=== BUILD LOG ===" && cat /tmp/build.log 2>/dev/null || true
+  - ./build.sh -d -o "$OUTPUT_DIR" --manifest || true
+  - |
+    if [ -f "$OUTPUT_DIR"/build-manifest.json ]; then
+      echo "Build succeeded — manifest found"
+      ls -la "$OUTPUT_DIR"
+    else
+      echo "Build failed — no manifest produced"
+      ls -la "$OUTPUT_DIR" || true
+    fi
 
 after_build:
-  - echo "=== AFTER BUILD ===" && ls -la "$OUTPUT_DIR" || true
+  - |
+    if [ -f "$OUTPUT_DIR"/build-manifest.json ]; then
+      tools/repo.sh init "$REPO_DIR"
+      for f in "$OUTPUT_DIR"/*.deb; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+      for f in "$OUTPUT_DIR"/*.rpm; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+      for f in "$OUTPUT_DIR"/*.pkg.tar.zst; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+      tools/repo.sh release "$REPO_DIR"
+      tools/repo.sh deploy "$REPO_DIR" "repo: update $(date -u +%Y-%m-%d)"
+    fi
+
+artifacts:
+  - path: /tmp/packages/*.deb
+    name: deb
+  - path: /tmp/packages/*.pkg.tar.zst
+    name: arch
+  - path: /tmp/packages/*.rpm
+    name: rpm
+  - path: /tmp/packages/*-sbom.json
+    name: sbom
+  - path: /tmp/packages/build-manifest.json
+    name: manifest
+
+for:
+  -
+    branches:
+      only:
+        - /v\d+\.\d+\.\d+.*/
+    build_script:
+      - shellcheck -x build.sh src/core/*.sh src/stage/*.sh src/packager/*.sh tools/*.sh || true
+      - bats tests/ || true
+      - mkdir -p "$OUTPUT_DIR" "$REPO_DIR"
+      - ./build.sh --all -o "$OUTPUT_DIR" --manifest --sign || true
+      - |
+        if [ -f "$OUTPUT_DIR"/build-manifest.json ]; then
+          echo "Release build succeeded"
+        else
+          echo "Release build failed"
+        fi
+    after_build:
+      - |
+        if [ -f "$OUTPUT_DIR"/build-manifest.json ]; then
+          tools/repo.sh init "$REPO_DIR"
+          for f in "$OUTPUT_DIR"/*.deb; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+          for f in "$OUTPUT_DIR"/*.rpm; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+          for f in "$OUTPUT_DIR"/*.pkg.tar.zst; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+          tools/repo.sh release "$REPO_DIR"
+          tools/repo.sh upload packages
+          echo "${APPVEYOR_REPO_TAG_NAME#v}" > "$REPO_DIR/.last-version"
+          tools/repo.sh deploy "$REPO_DIR" "repo: release $(date -u +%Y-%m-%d)"
+        fi
+    artifacts:
+      - path: /tmp/packages/*.deb
+      - path: /tmp/packages/*.pkg.tar.zst
+      - path: /tmp/packages/*.rpm
+      - path: /tmp/packages/*.sig
+      - path: /tmp/packages/build-manifest.json
+    deploy:
+      - provider: GitHub
+        auth_token: $(GITHUB_TOKEN)
+        description: 'AmneziaVPN $(APPVEYOR_REPO_TAG_NAME)'
+        draft: false
+        prerelease: false
+        force_update: true
+        on:
+          appveyor_repo_tag: true
