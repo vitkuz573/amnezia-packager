@@ -26,14 +26,15 @@ build_script:
   - shellcheck -x build.sh src/core/*.sh src/stage/*.sh src/packager/*.sh tools/*.sh || true
   - bats tests/ || true
   - mkdir -p "$OUTPUT_DIR"
-  - echo "hello world" > "$OUTPUT_DIR/test-artifact.txt"
-  - ls -la "$OUTPUT_DIR/"
+  - script -q -c "./build.sh -d -o '$OUTPUT_DIR' --manifest 2>&1" build.log; echo "BUILD_EXIT=$?" >> build.log; cp build.log "$OUTPUT_DIR/" 2>/dev/null; cat build.log | tail -40
 
 after_build:
-  - ls -la "$OUTPUT_DIR/"
+  - ls -la "$OUTPUT_DIR/" 2>&1 || true
 
 artifacts:
-  - path: output/*.txt
-    name: test
+  - path: output/build.log
+    name: log
   - path: output/*.deb
     name: deb
+  - path: output/*.json
+    name: manifest
