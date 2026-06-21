@@ -13,32 +13,29 @@ skip_commits:
     - .github/**
 
 environment:
+  GITHUB_TOKEN:
+    secure: o4Nsjt/mOeQpqBPpCnmSDb5GiWBRyLZSdR/bqYw5cBUbVQt/bjME8IkuRk1pWHc0
   OUTPUT_DIR: /tmp/packages
-  REPO_DIR: /tmp/repo
-  CORRELATION_ID: ci-{build}
   DEBIAN_FRONTEND: noninteractive
 
 install:
-  - echo "=== install dependencies ===" && sudo apt-get update -qq && sudo apt-get install -y -qq jq curl shellcheck bats dpkg-dev fakeroot rpm createrepo-c && echo "=== install done ==="
+  - sudo apt-get update -qq
+  - sudo apt-get install -y -qq jq curl shellcheck bats dpkg-dev fakeroot rpm createrepo-c
 
 build_script:
-  - echo "=== shellcheck ===" && shellcheck -x build.sh src/core/*.sh src/stage/*.sh src/packager/*.sh tools/*.sh || true
-  - echo "=== bats ===" && bats tests/ || true
-  - echo "=== build ===" && mkdir -p "$OUTPUT_DIR" "$REPO_DIR" && ./build.sh -d -o "$OUTPUT_DIR" --manifest 2>&1; BUILD_EXIT=$?; echo "BUILD_EXIT=$BUILD_EXIT"
-  - echo "=== output ===" && ls -la "$OUTPUT_DIR" || true
+  - shellcheck -x build.sh src/core/*.sh src/stage/*.sh src/packager/*.sh tools/*.sh || true
+  - bats tests/ || true
+  - mkdir -p "$OUTPUT_DIR"
+  - timeout 600 bash -x ./build.sh -d -o "$OUTPUT_DIR" --manifest > /tmp/build.log 2>&1; echo "--- EXIT_CODE=$? ---" >> /tmp/build.log
 
 after_build:
-  - |
-    echo "=== after_build ==="
-    ls -la "$OUTPUT_DIR" || true
-    if [ -f "$OUTPUT_DIR"/*.deb ]; then
-      echo "Package found"
-    else
-      echo "No package produced"
-    fi
+  - ls -la "$OUTPUT_DIR" >> /tmp/build.log 2>&1 || true
+  - cp /tmp/build.log "$OUTPUT_DIR/" 2>/dev/null || true
 
 artifacts:
+  - path: /tmp/packages/build.log
+    name: log
   - path: /tmp/packages/*.deb
     name: deb
-  - path: /tmp/packages/build-manifest.json
+  - path: /tmp/packages/*.json
     name: manifest

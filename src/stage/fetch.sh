@@ -35,7 +35,7 @@ run_fetch() {
 
     if [[ -z "$TAR_URL" ]]; then
         local data
-        local curl_cmd=("curl" "-sS")
+        local curl_cmd=("curl" "-sS" "--connect-timeout" "10" "--max-time" "30")
         [[ -n "${GITHUB_TOKEN:-}" ]] && curl_cmd+=(-H "Authorization: token ${GITHUB_TOKEN}")
         data="$("${curl_cmd[@]}" "$api_url")" || {
             err "GitHub API request failed"
@@ -92,7 +92,7 @@ run_fetch() {
 
     tar_file="${WORKDIR}/${APP_USER}_${RELEASE_VERSION}_linux_x64.tar"
     info "Downloading…"
-    curl -L# "$TAR_URL" -o "$tar_file"
+    curl -L --connect-timeout 10 --max-time 300 "$TAR_URL" -o "$tar_file"
 
     # ── Verify hash against GitHub API digest ────────────────────────
     if [[ -n "$SOURCE_SHA256" ]]; then
