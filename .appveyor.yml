@@ -25,4 +25,14 @@ install:
 build_script:
   - shellcheck -x build.sh src/core/*.sh src/stage/*.sh src/packager/*.sh tools/*.sh || true
   - bats tests/ || true
-  - echo "Lint and test passed"
+  - mkdir -p "$OUTPUT_DIR" "$REPO_DIR"
+  - ./build.sh -d -o "$OUTPUT_DIR" --manifest
+
+after_build:
+  - ls -la "$OUTPUT_DIR"
+
+artifacts:
+  - path: /tmp/packages/*.deb
+    name: deb
+  - path: /tmp/packages/build-manifest.json
+    name: manifest
