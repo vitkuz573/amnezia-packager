@@ -3,7 +3,7 @@
 # AmneziaVPN Packager — Enterprise-Grade Build System
 # https://github.com/vitkuz573/amnezia-packager
 #
-set -uo pipefail
+set -euo pipefail
 
 export PROJECT_ROOT="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 
