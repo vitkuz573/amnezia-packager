@@ -2,41 +2,16 @@ version: '0.1.{build}'
 
 image: Ubuntu2204
 
-environment:
-  GITHUB_TOKEN:
-    secure: o4Nsjt/mOeQpqBPpCnmSDb5GiWBRyLZSdR/bqYw5cBUbVQt/bjME8IkuRk1pWHc0
-  OUTPUT_DIR: output
-  CI_ISSUE: 1
-
 install:
   - sudo apt-get update -qq
-  - sudo apt-get install -y -qq jq curl dpkg-dev fakeroot
+  - sudo apt-get install -y -qq jq curl
 
 build_script:
+  - echo "Hello from CI"
   - mkdir -p output
-  - ./build.sh -d -o output --manifest > output/build.log 2>&1; echo "=== EXIT CODE: $? ===" >> output/build.log
-
-after_build:
+  - echo "test" > output/marker.txt
   - ls -la output/
-  - |
-    if [ -n "$GITHUB_TOKEN" ]; then
-      python3 -c "
-import json, sys, os
-with open('output/build.log') as f:
-    text = f.read()
-if len(text) > 60000:
-    text = text[:25000] + '\n\n... [TRUNCATED] ...\n\n' + text[-25000:]
-body = json.dumps({'body': text})
-with open('/tmp/comment-body.json', 'w') as f:
-    f.write(body)
-" 2>/dev/null
-      curl -sS -X POST "https://api.github.com/repos/vitkuz573/amnezia-packager/issues/$CI_ISSUE/comments" \
-        -H "Authorization: token $GITHUB_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d @/tmp/comment-body.json > output/comment-result.json 2>/dev/null
-      python3 -c "import json; d=json.load(open('output/comment-result.json')); print('COMMENT:', d.get('html_url','NO_URL'))" 2>/dev/null
-    fi
 
 artifacts:
-  - path: output/build.log
-    name: log
+  - path: output/marker.txt
+    name: marker
