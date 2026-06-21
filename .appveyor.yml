@@ -14,8 +14,14 @@ skip_commits:
 
 environment:
   OUTPUT_DIR: /tmp/packages
-  TEST_VAR: hello
+  REPO_DIR: /tmp/repo
+  CORRELATION_ID: ci-{build}
+  DEBIAN_FRONTEND: noninteractive
+
+install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -y -qq jq curl shellcheck bats dpkg-dev fakeroot rpm createrepo-c
 
 build_script:
-  - echo "Build running"
-  - echo "Test var is $TEST_VAR"
+  - echo "Install completed"
+  - which jq curl shellcheck bats dpkg-deb fakeroot rpmbuild createrepo_c
