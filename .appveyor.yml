@@ -4,15 +4,16 @@ image: Ubuntu2204
 
 environment:
   OUTPUT_DIR: output
+  RELEASE_VERSION: 4.8.19.0
 
 install:
   - sudo apt-get update -qq
-  - sudo apt-get install -y -qq jq curl dpkg-dev fakeroot git
+  - sudo apt-get install -y -qq jq curl dpkg-dev fakeroot
 
 build_script:
   - mkdir -p output
-  - ./build.sh -d -o output --manifest > output/build.log 2>&1; echo "=== EXIT CODE: $? ===" >> output/build.log
-  - grep -E 'EXIT CODE|error|failed|Error' output/build.log | tail -5
+  - ./build.sh -v "$RELEASE_VERSION" -d -o output --manifest > output/build.log 2>&1; echo "=== EXIT CODE: $? ===" >> output/build.log
+  - grep -E 'EXIT CODE|error|failed|Error|succ|Download|SHA256' output/build.log | tail -10
 
 after_build:
   - ls -la output/

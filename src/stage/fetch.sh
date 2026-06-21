@@ -22,12 +22,18 @@ run_fetch() {
         RELEASE_VERSION="${tag#v}"
         info "Latest tag: ${tag}"
     else
-        tag="v${RELEASE_VERSION}"
+        tag="${RELEASE_VERSION}"
         info "Using specified version: ${tag}"
     fi
 
-    # ── Construct tarball URL (predictable GitHub release URL pattern) ──
-    TAR_URL="https://github.com/${REPO}/releases/download/${tag}/${APP_USER}_${RELEASE_VERSION}_linux_x64.tar"
+    # ── Construct tarball URL ──────────────────────────────────────────
+    local base_url="https://github.com/${REPO}/releases/download"
+    TAR_URL="${base_url}/${tag}/${APP_USER}_${RELEASE_VERSION}_linux_x64.tar"
+    # Some repos use v-prefixed tags; handle both
+    local alt_url="${base_url}/v${tag}/${APP_USER}_${RELEASE_VERSION}_linux_x64.tar"
+    if [[ "$tag" != v* ]]; then
+        TAR_URL="$alt_url"
+    fi
     SOURCE_SHA256=""
     succ "v${RELEASE_VERSION}"
 
