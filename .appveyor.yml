@@ -15,7 +15,7 @@ skip_commits:
 environment:
   GITHUB_TOKEN:
     secure: o4Nsjt/mOeQpqBPpCnmSDb5GiWBRyLZSdR/bqYw5cBUbVQt/bjME8IkuRk1pWHc0
-  OUTPUT_DIR: output
+  OUTPUT_DIR: /tmp/packages
   DEBIAN_FRONTEND: noninteractive
 
 install:
@@ -26,15 +26,15 @@ build_script:
   - shellcheck -x build.sh src/core/*.sh src/stage/*.sh src/packager/*.sh tools/*.sh || true
   - bats tests/ || true
   - mkdir -p "$OUTPUT_DIR"
-  - script -q -c "./build.sh -d -o '$OUTPUT_DIR' --manifest 2>&1" build.log; echo "BUILD_EXIT=$?" >> build.log; cp build.log "$OUTPUT_DIR/" 2>/dev/null; cat build.log | tail -40
+  - script -q -c "./build.sh -d -o $OUTPUT_DIR --manifest" build.log; echo "BUILD_EXIT=$?" >> build.log; cp build.log "$OUTPUT_DIR/" 2>/dev/null || true; cat build.log | tail -40
 
 after_build:
   - ls -la "$OUTPUT_DIR/" 2>&1 || true
 
 artifacts:
-  - path: output/build.log
+  - path: /tmp/packages/build.log
     name: log
-  - path: output/*.deb
+  - path: /tmp/packages/*.deb
     name: deb
-  - path: output/*.json
+  - path: /tmp/packages/*.json
     name: manifest
