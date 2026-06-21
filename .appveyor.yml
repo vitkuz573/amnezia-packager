@@ -2,18 +2,23 @@ version: '0.1.{build}'
 
 image: Ubuntu2204
 
+environment:
+  OUTPUT_DIR: output
+  RELEASE_VERSION: 4.8.19.0
+
 install:
   - sudo apt-get update -qq
   - sudo apt-get install -y -qq jq curl dpkg-dev fakeroot git
 
 build_script:
-  - echo "Hello"
   - mkdir -p output
-  - echo "World" > output/test.txt
-
-after_build:
-  - ls -la output/
+  - echo "=== GIT LS-REMOTE ==="
+  - git ls-remote --tags "https://github.com/amnezia-vpn/amnecia-client.git" | tail -5
+  - echo "=== CURL TEST ==="
+  - curl -sIL -o /dev/null -w "HTTP %{http_code}\n" "https://github.com/amnezia-vpn/amnecia-client/releases/download/4.8.19.0/AmneziaVPN_4.8.19.0_linux_x64.tar"
+  - echo "=== BUILD ==="
+  - ./build.sh -v "$RELEASE_VERSION" -d -o output --manifest > output/build.log 2>&1; echo "EXIT CODE: $?" >> output/build.log
+  - tail -30 output/build.log
 
 artifacts:
-  - path: output/test.txt
-    name: test
+  - path: output/*.log
