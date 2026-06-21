@@ -8,17 +8,15 @@ environment:
 
 install:
   - sudo apt-get update -qq
-  - sudo apt-get install -y -qq jq curl dpkg-dev fakeroot git
+  - sudo apt-get install -y -qq jq curl dpkg-dev fakeroot git wget
 
 build_script:
   - mkdir -p output
-  - echo "=== GIT LS-REMOTE ==="
-  - git ls-remote --tags "https://github.com/amnezia-vpn/amnezia-client.git" | tail -5
-  - echo "=== BUILD ==="
-  - ./build.sh -v "$RELEASE_VERSION" -d -o output --manifest
+  - ./build.sh -v "$RELEASE_VERSION" -d -o output --manifest > output/build.log 2>&1; echo "EXIT: $?" >> output/build.log
 
 after_build:
   - ls -la output/
+  - cat output/build.log | tail -50
 
 artifacts:
   - path: output/*
