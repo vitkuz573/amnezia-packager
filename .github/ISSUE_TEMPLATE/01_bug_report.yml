@@ -1,0 +1,47 @@
+name: Bug Report
+description: Report a bug in the build system, packager, or repo tools
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to fill out this bug report.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Build system (build.sh, pipeline)
+        - Packager (deb/rpm/arch script)
+        - Config / template engine
+        - Repo tools (repo.sh, healthcheck)
+        - Docker / Vagrant
+        - CI (AppVeyor)
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Steps to reproduce the issue.
+      placeholder: |
+        1. Run `./build.sh -a --tar ...`
+        2. See error
+  - type: input
+    id: version
+    attributes:
+      label: Version / Commit
+      description: Git commit hash or release version.
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution
+      description: Arch / Debian / Fedora / Docker

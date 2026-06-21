@@ -1,5 +1,11 @@
 # AmneziaVPN Packager
 
+[![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
+[![Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-E05735)](CHANGELOG.md)
+[![Contributing](https://img.shields.io/badge/contributing-guide-2ea44f)](CONTRIBUTING.md)
+[![Code of Conduct](https://img.shields.io/badge/code%20of%20conduct-Contributor%20Covenant-ff69b4)](CODE_OF_CONDUCT.md)
+[![AppVeyor](https://img.shields.io/badge/CI-AppVeyor-0078d7)](.appveyor.yml)
+
 Enterprise-grade build system that downloads [AmneziaVPN](https://github.com/amnezia-vpn/amnezia-client) releases from GitHub and packages them into native distribution formats with GPG signing, SBOM, build manifests, and layered configuration.
 
 ```
@@ -213,6 +219,18 @@ sudo rpm -i amneziavpn-*.rpm                                  # Fedora
 
 After installation: systemd service `amneziavpn.service` auto-starts, CLI at `/usr/local/bin/amneziavpn`.
 
+## Project Status
+
+Follows **semantic versioning** (see [CHANGELOG](CHANGELOG.md)).
+The config schema and template interface are stable within a major version.
+
+## Community
+
+- [Contributing Guide](CONTRIBUTING.md) — how to add new packagers, pipeline stages, config vars
+- [Code of Conduct](CODE_OF_CONDUCT.md) — community standards
+- [Security Policy](SECURITY.md) — how to report vulnerabilities
+- [Issue Templates](https://github.com/vitkuz573/amnezia-packager/issues/new/choose) — bug, feature, new packager
+
 ## Package Repository Management
 
 ```bash
@@ -284,3 +302,10 @@ On push to `main`:
 ## License
 
 GNU General Public License v3.0 — see [LICENSE](LICENSE).
+
+## Links
+
+- **GitHub**: https://github.com/vitkuz573/amnezia-packager
+- **Package Repo**: https://vitkuz573.github.io/amnezia-packager/
+- **Changelog**: https://github.com/vitkuz573/amnezia-packager/blob/main/CHANGELOG.md
+- **Docs**: [`docs/`](docs/architecture.md)

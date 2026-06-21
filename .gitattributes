@@ -1,0 +1,29 @@
+# Normalize line endings
+* text=auto eol=lf
+
+# Shell
+*.sh text diff=bash
+*.bash text diff=bash
+
+# Data
+*.json text diff=json
+*.yml text
+*.yaml text
+
+# Docs
+*.md text diff=markdown
+
+# Templates
+PKGBUILD text
+control text
+spec text
+
+# Binary
+*.tar binary
+*.deb binary
+*.rpm binary
+*.pkg.tar.zst binary
+*.sig binary
+*.asc binary
+*.png binary
+*.jpg binary

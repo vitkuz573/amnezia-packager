@@ -1,0 +1,34 @@
+name: Packager Request
+description: Request support for a new package format or distribution
+labels: [enhancement, packager]
+body:
+  - type: markdown
+    attributes:
+      value: Suggest a new target format for the packager.
+  - type: input
+    id: format
+    attributes:
+      label: Package Format
+      description: e.g. `.apk` (Alpine), `.snap` (Snapcraft), `.flatpak`
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Target Distribution
+      description: e.g. Alpine Linux, openSUSE, Solus
+    validations:
+      required: true
+  - type: textarea
+    id: tooling
+    attributes:
+      label: Build Tooling
+      description: What tools are needed? (e.g. `apk-tools`, `snapcraft`)
+      placeholder: "sudo apt install alpine-pkg-utils"
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes
+      description: Links to packaging guidelines, examples, etc.
