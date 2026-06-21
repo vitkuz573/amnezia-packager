@@ -13,12 +13,12 @@ install:
 build_script:
   - mkdir -p output
   - echo "=== GIT LS-REMOTE ==="
-  - git ls-remote --tags "https://github.com/amnezia-vpn/amnecia-client.git" | tail -5
-  - echo "=== CURL TEST ==="
-  - curl -sIL -o /dev/null -w "HTTP %{http_code}\n" "https://github.com/amnezia-vpn/amnecia-client/releases/download/4.8.19.0/AmneziaVPN_4.8.19.0_linux_x64.tar"
+  - git ls-remote --tags "https://github.com/amnezia-vpn/amnezia-client.git" | tail -5
   - echo "=== BUILD ==="
-  - ./build.sh -v "$RELEASE_VERSION" -d -o output --manifest > output/build.log 2>&1; echo "EXIT CODE: $?" >> output/build.log
-  - tail -30 output/build.log
+  - ./build.sh -v "$RELEASE_VERSION" -d -o output --manifest
+
+after_build:
+  - ls -la output/
 
 artifacts:
-  - path: output/*.log
+  - path: output/*
