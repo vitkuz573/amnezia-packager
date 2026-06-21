@@ -13,7 +13,8 @@ skip_commits:
     - .github/**
 
 environment:
-  OUTPUT_DIR: output
+  PROJECT_ROOT: /home/appveyor/projects/amnezia-packager
+  OUTPUT_DIR: /tmp/packages
   DEBIAN_FRONTEND: noninteractive
 
 install:
@@ -21,23 +22,16 @@ install:
   - sudo apt-get install -y -qq jq curl shellcheck bats dpkg-dev fakeroot
 
 build_script:
-  - mkdir -p output
-  - echo "--- step1 sourcing ---" > output/step1.log
-  - source src/core/logger.sh >> output/step1.log 2>&1 && echo logger=ok >> output/step1.log
-  - source src/core/config.sh >> output/step1.log 2>&1 && echo config=ok >> output/step1.log
-  - source src/core/bootstrap.sh >> output/step1.log 2>&1 && echo bootstrap=ok >> output/step1.log
-  - source src/core/pipeline.sh >> output/step1.log 2>&1 && echo pipeline=ok >> output/step1.log
-  - echo --- sourcing done --- >> output/step1.log
-  - echo "--- step2 help ---" > output/step2.log && ./build.sh --help >> output/step2.log 2>&1; echo "HELP_EXIT=$?" >> output/step2.log
-  - echo "--- step3 dryrun ---" > output/step3.log && ./build.sh -n -d -o output >> output/step3.log 2>&1; echo "DRYRUN_EXIT=$?" >> output/step3.log
-  - echo === step1 === && cat output/step1.log && echo === step2 === && cat output/step2.log && echo === step3 === && cat output/step3.log
+  - echo "=== BUILD_STARTED ===" 
+  - mkdir -p /tmp/packages
+  - touch /tmp/packages/ci-marker-1
+  - pwd > /tmp/packages/ci-marker-2
+  - ls -la /tmp/packages/ > /tmp/packages/ci-marker-3
+  - echo "=== BUILD_ENDED ==="
 
 after_build:
-  - cat output/step1.log
-  - cat output/step2.log
-  - cat output/step3.log
-  - ls -la output/
+  - ls -la /tmp/packages/
 
 artifacts:
-  - path: output/*.log
-    name: logs
+  - path: /tmp/packages/ci-marker-*
+    name: markers
