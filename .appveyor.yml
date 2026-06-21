@@ -15,7 +15,7 @@ skip_commits:
 environment:
   GITHUB_TOKEN:
     secure: o4Nsjt/mOeQpqBPpCnmSDb5GiWBRyLZSdR/bqYw5cBUbVQt/bjME8IkuRk1pWHc0
-  OUTPUT_DIR: /tmp/packages
+  OUTPUT_DIR: output
   DEBIAN_FRONTEND: noninteractive
 
 install:
@@ -26,16 +26,14 @@ build_script:
   - shellcheck -x build.sh src/core/*.sh src/stage/*.sh src/packager/*.sh tools/*.sh || true
   - bats tests/ || true
   - mkdir -p "$OUTPUT_DIR"
-  - timeout 600 bash -x ./build.sh -d -o "$OUTPUT_DIR" --manifest > /tmp/build.log 2>&1; echo "--- EXIT_CODE=$? ---" >> /tmp/build.log
+  - script -q -c "./build.sh -d -o '$OUTPUT_DIR' --manifest 2>&1" build.log; echo "BUILD_EXIT=$?"
 
 after_build:
-  - ls -la "$OUTPUT_DIR" >> /tmp/build.log 2>&1 || true
-  - cp /tmp/build.log "$OUTPUT_DIR/" 2>/dev/null || true
+  - cp build.log "$OUTPUT_DIR/" 2>/dev/null || true
+  - ls -la "$OUTPUT_DIR" 2>&1 || true
 
 artifacts:
-  - path: /tmp/packages/build.log
+  - path: output/build.log
     name: log
-  - path: /tmp/packages/*.deb
+  - path: output/*.deb
     name: deb
-  - path: /tmp/packages/*.json
-    name: manifest
