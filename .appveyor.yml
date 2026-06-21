@@ -13,28 +13,31 @@ skip_commits:
     - .github/**
 
 environment:
-  GITHUB_TOKEN:
-    secure: o4Nsjt/mOeQpqBPpCnmSDb5GiWBRyLZSdR/bqYw5cBUbVQt/bjME8IkuRk1pWHc0
   OUTPUT_DIR: output
   DEBIAN_FRONTEND: noninteractive
 
 install:
   - sudo apt-get update -qq
-  - sudo apt-get install -y -qq jq curl shellcheck bats dpkg-dev fakeroot rpm createrepo-c
+  - sudo apt-get install -y -qq jq curl shellcheck bats dpkg-dev fakeroot
 
 build_script:
-  - shellcheck -x build.sh src/core/*.sh src/stage/*.sh src/packager/*.sh tools/*.sh || true
-  - bats tests/ || true
-  - mkdir -p "$OUTPUT_DIR"
-  - ./build.sh -d -o "$OUTPUT_DIR" --manifest > "$OUTPUT_DIR/build.log" 2>&1; echo "--- EXIT=$? ---" >> "$OUTPUT_DIR/build.log"; cat "$OUTPUT_DIR/build.log" | tail -40
+  - mkdir -p output
+  - echo "--- step1 sourcing ---" > output/step1.log
+  - source src/core/logger.sh >> output/step1.log 2>&1 && echo logger=ok >> output/step1.log
+  - source src/core/config.sh >> output/step1.log 2>&1 && echo config=ok >> output/step1.log
+  - source src/core/bootstrap.sh >> output/step1.log 2>&1 && echo bootstrap=ok >> output/step1.log
+  - source src/core/pipeline.sh >> output/step1.log 2>&1 && echo pipeline=ok >> output/step1.log
+  - echo --- sourcing done --- >> output/step1.log
+  - echo "--- step2 help ---" > output/step2.log && ./build.sh --help >> output/step2.log 2>&1; echo "HELP_EXIT=$?" >> output/step2.log
+  - echo "--- step3 dryrun ---" > output/step3.log && ./build.sh -n -d -o output >> output/step3.log 2>&1; echo "DRYRUN_EXIT=$?" >> output/step3.log
+  - echo === step1 === && cat output/step1.log && echo === step2 === && cat output/step2.log && echo === step3 === && cat output/step3.log
 
 after_build:
-  - ls -la "$OUTPUT_DIR/" 2>&1 || true
+  - cat output/step1.log
+  - cat output/step2.log
+  - cat output/step3.log
+  - ls -la output/
 
 artifacts:
-  - path: output/build.log
-    name: log
-  - path: output/*.deb
-    name: deb
-  - path: output/*.json
-    name: manifest
+  - path: output/*.log
+    name: logs
