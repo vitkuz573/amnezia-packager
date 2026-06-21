@@ -14,21 +14,19 @@ install:
 build_script:
   - mkdir -p output
   - ./build.sh -d -o output --manifest > output/build.log 2>&1; echo "--- EXIT=$? ---" >> output/build.log
+  - |
+    exit_code=$(tail -1 output/build.log | grep -oP 'EXIT=\K\d+')
+    if [ "$exit_code" = "0" ]; then
+      echo "build.sh(1,1): info AV1: BUILD SUCCEEDED (exit=0)"
+    else
+      echo "build.sh(1,1): error AV1: BUILD FAILED (exit=${exit_code:-?})"
+      echo "build.sh(1,1): error AV1: Last 5 lines of build.log:"
+      tail -5 output/build.log | while IFS= read -r line; do
+        echo "build.sh(1,1): error AV1: $line"
+      done
+    fi
 
 after_build:
-  - |
-    LOG_FILE="output/build.log"
-    if [ -f "$LOG_FILE" ] && [ -n "$GITHUB_TOKEN" ]; then
-      LOG_CONTENT=$(cat "$LOG_FILE" | python3 -c "import json,sys; print(json.dumps({'files':{'build.log':{'content':sys.stdin.read()}}}))" 2>/dev/null)
-      if [ -n "$LOG_CONTENT" ]; then
-        GIST_URL=$(curl -sS -X POST "https://api.github.com/gists" \
-          -H "Authorization: token $GITHUB_TOKEN" \
-          -H "Content-Type: application/json" \
-          -d "$LOG_CONTENT" 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('html_url','NO_URL'))" 2>/dev/null)
-        echo "GIST: $GIST_URL" >> "$LOG_FILE"
-        echo "GIST: $GIST_URL"
-      fi
-    fi
   - ls -la output/
 
 artifacts:
