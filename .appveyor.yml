@@ -6,32 +6,22 @@ branches:
   only:
     - main
 
-skip_commits:
-  files:
-    - '*.md'
-    - docs/**
-    - .github/**
-
 environment:
-  PROJECT_ROOT: /home/appveyor/projects/amnezia-packager
-  OUTPUT_DIR: /tmp/packages
-  DEBIAN_FRONTEND: noninteractive
+  OUTPUT_DIR: output
 
 install:
   - sudo apt-get update -qq
   - sudo apt-get install -y -qq jq curl shellcheck bats dpkg-dev fakeroot
 
 build_script:
-  - echo "=== BUILD_STARTED ===" 
-  - mkdir -p /tmp/packages
-  - touch /tmp/packages/ci-marker-1
-  - pwd > /tmp/packages/ci-marker-2
-  - ls -la /tmp/packages/ > /tmp/packages/ci-marker-3
-  - echo "=== BUILD_ENDED ==="
+  - mkdir -p "$OUTPUT_DIR"
+  - echo "hello-world" > "$OUTPUT_DIR/marker.txt"
+  - pwd
+  - ls -la "$OUTPUT_DIR/"
 
 after_build:
-  - ls -la /tmp/packages/
+  - ls -la "$OUTPUT_DIR/"
 
 artifacts:
-  - path: /tmp/packages/ci-marker-*
-    name: markers
+  - path: output/marker.txt
+    name: marker
