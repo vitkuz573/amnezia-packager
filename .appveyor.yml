@@ -2,25 +2,10 @@ version: '0.1.{build}'
 
 image: Ubuntu2204
 
-branches:
-  only:
-    - main
-
-environment:
-  OUTPUT_DIR: output
-
 install:
-  - sudo apt-get update -qq
-  - sudo apt-get install -y -qq jq curl shellcheck bats dpkg-dev fakeroot
-
-build_script:
-  - mkdir -p "$OUTPUT_DIR"
-  - echo "hello-world" > "$OUTPUT_DIR/marker.txt"
-  - pwd
-  - ls -la "$OUTPUT_DIR/"
-
-after_build:
-  - ls -la "$OUTPUT_DIR/"
+  - mkdir -p output
+  - echo "marker" > output/marker.txt
+  - ls -la output/
 
 artifacts:
   - path: output/marker.txt
