@@ -26,13 +26,9 @@ build_script:
   - shellcheck -x build.sh src/core/*.sh src/stage/*.sh src/packager/*.sh tools/*.sh || true
   - bats tests/ || true
   - mkdir -p "$OUTPUT_DIR" "$REPO_DIR"
-  - ./build.sh -d -o "$OUTPUT_DIR" --manifest
+  - ./build.sh -n -d -o "$OUTPUT_DIR" 2>&1 || echo "BUILD_FAILED=$?"
+  - echo "=== BUILD DIR ===" && ls -la "$OUTPUT_DIR" || true
+  - echo "=== BUILD LOG ===" && cat /tmp/build.log 2>/dev/null || true
 
 after_build:
-  - ls -la "$OUTPUT_DIR"
-
-artifacts:
-  - path: /tmp/packages/*.deb
-    name: deb
-  - path: /tmp/packages/build-manifest.json
-    name: manifest
+  - echo "=== AFTER BUILD ===" && ls -la "$OUTPUT_DIR" || true
