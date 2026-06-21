@@ -1,6 +1,143 @@
 version: '0.1.{build}'
+
 image: Ubuntu2204
+
+branches:
+  only:
+    - main
+
+skip_commits:
+  files:
+    - '*.md'
+    - docs/**
+    - .github/**
+
+environment:
+  OUTPUT_DIR: /tmp/packages
+  REPO_DIR: /tmp/repo
+  GPG_KEY: AmneziaVPN Repository
+  GPG_KEY_ID: B63E7D50DE313425
+  CORRELATION_ID: ci-{build}
+  DEBIAN_FRONTEND: noninteractive
+
+install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -y -qq jq curl shellcheck bats dpkg-dev fakeroot rpm createrepo-c
+  - |
+    if [ -n "$REPO_GPG_PRIVATE_KEY" ]; then
+      echo "$REPO_GPG_PRIVATE_KEY" | gpg --batch --import
+      echo -e "5\ny\n" | gpg --command-fd 0 --expert --batch --edit-key "$GPG_KEY_ID" trust
+      echo "GPG key $GPG_KEY_ID imported and trusted"
+    fi
+
 build_script:
-  - echo "Hello from AppVeyor"
-  - uname -a
-  - id
+  - shellcheck -x build.sh src/**/*.sh tools/*.sh || true
+  - bats tests/ || true
+  - |
+    if [ "${TRIGGER:-}" == "check" ]; then
+      NEW_VER=$(tools/check-upstream.sh || true)
+      if [ -z "$NEW_VER" ]; then
+        echo "No new upstream version — skipping package build"
+        touch /tmp/skip-build
+      else
+        echo "$NEW_VER" > /tmp/new-version
+        echo "New upstream version: $NEW_VER"
+      fi
+    fi
+  - |
+    if [ ! -f /tmp/skip-build ]; then
+      mkdir -p "$OUTPUT_DIR" "$REPO_DIR"
+      VER_FLAG=""
+      [ -f /tmp/new-version ] && VER_FLAG="-v $(cat /tmp/new-version)"
+      ./build.sh -d -o "$OUTPUT_DIR" --manifest $VER_FLAG
+    fi
+  - |
+    if [ ! -f /tmp/skip-build ]; then
+      VER_FLAG=""
+      [ -f /tmp/new-version ] && VER_FLAG="-v $(cat /tmp/new-version)"
+      ./build.sh -r -o "$OUTPUT_DIR" --manifest $VER_FLAG
+    fi
+  - |
+    if [ ! -f /tmp/skip-build ] && command -v docker &>/dev/null; then
+      VER_FLAG=""
+      [ -f /tmp/new-version ] && VER_FLAG="-v $(cat /tmp/new-version)"
+      docker build -t amnezia-packager .
+      docker run --rm -v "$OUTPUT_DIR":/output amnezia-packager -a -o /output --manifest $VER_FLAG
+    fi
+
+after_build:
+  - |
+    if [ ! -f /tmp/skip-build ]; then
+      tools/repo.sh init "$REPO_DIR"
+      for f in "$OUTPUT_DIR"/*.deb; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+      for f in "$OUTPUT_DIR"/*.rpm; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+      for f in "$OUTPUT_DIR"/*.pkg.tar.zst; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+      GPG_SIGN_ARGS=""
+      if [ -n "$REPO_GPG_PRIVATE_KEY" ]; then
+        GPG_SIGN_ARGS="--gpg-key $GPG_KEY_ID"
+      fi
+      tools/repo.sh release "$REPO_DIR" $GPG_SIGN_ARGS
+      if [ -f /tmp/new-version ]; then
+        echo "$(cat /tmp/new-version)" > "$REPO_DIR/.last-version"
+      fi
+      tools/repo.sh deploy "$REPO_DIR" "repo: update $(date -u +%Y-%m-%d)"
+    fi
+
+artifacts:
+  - path: /tmp/packages/*.deb
+    name: deb
+  - path: /tmp/packages/*.pkg.tar.zst
+    name: arch
+  - path: /tmp/packages/*.rpm
+    name: rpm
+  - path: /tmp/packages/*-sbom.json
+    name: sbom
+  - path: /tmp/packages/build-manifest.json
+    name: manifest
+
+for:
+  -
+    branches:
+      only:
+        - /v\d+\.\d+\.\d+.*/
+    environment:
+      GPG_SIGN: --sign
+    build_script:
+      - shellcheck -x build.sh src/**/*.sh tools/*.sh || true
+      - bats tests/ || true
+      - mkdir -p "$OUTPUT_DIR" "$REPO_DIR"
+      - |
+        SIGN_FLAGS=""
+        if [ -n "$REPO_GPG_PRIVATE_KEY" ]; then
+          SIGN_FLAGS="--sign --gpg-key $GPG_KEY_ID"
+        fi
+        ./build.sh --all -o "$OUTPUT_DIR" --manifest $SIGN_FLAGS
+    after_build:
+      - |
+        tools/repo.sh init "$REPO_DIR"
+        for f in "$OUTPUT_DIR"/*.deb; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+        for f in "$OUTPUT_DIR"/*.rpm; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+        for f in "$OUTPUT_DIR"/*.pkg.tar.zst; do [ -f "$f" ] && tools/repo.sh add "$f" "$REPO_DIR"; done
+        GPG_SIGN_ARGS=""
+        if [ -n "$REPO_GPG_PRIVATE_KEY" ]; then
+          GPG_SIGN_ARGS="--gpg-key $GPG_KEY_ID"
+        fi
+        tools/repo.sh release "$REPO_DIR" $GPG_SIGN_ARGS
+        tools/repo.sh upload packages
+        echo "${APPVEYOR_REPO_TAG_NAME#v}" > "$REPO_DIR/.last-version"
+        tools/repo.sh deploy "$REPO_DIR" "repo: release $(date -u +%Y-%m-%d)"
+    artifacts:
+      - path: /tmp/packages/*.deb
+      - path: /tmp/packages/*.pkg.tar.zst
+      - path: /tmp/packages/*.rpm
+      - path: /tmp/packages/*.sig
+      - path: /tmp/packages/build-manifest.json
+    deploy:
+      - provider: GitHub
+        auth_token: $(GITHUB_TOKEN)
+        description: 'AmneziaVPN $(APPVEYOR_REPO_TAG_NAME)'
+        draft: false
+        prerelease: false
+        force_update: true
+        on:
+          appveyor_repo_tag: true
